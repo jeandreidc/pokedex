@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "Running .NET tests before commit..."
+dotnet test Kota.Pokedex.sln -c Release --verbosity minimal
