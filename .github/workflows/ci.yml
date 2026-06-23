@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: .NET build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Kota.Pokedex.sln
+
+      - name: Build
+        run: dotnet build Kota.Pokedex.sln --no-restore -c Release
+
+      - name: Unit tests
+        run: dotnet test tests/Kota.Pokedex.Tests.Unit/Kota.Pokedex.Tests.Unit.csproj --no-build -c Release --verbosity normal
+
+      - name: Integration tests
+        run: dotnet test tests/Kota.Pokedex.Tests.Integration/Kota.Pokedex.Tests.Integration.csproj --no-build -c Release --verbosity normal

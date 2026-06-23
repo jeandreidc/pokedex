@@ -3,11 +3,21 @@ kind: Config
 metadata:
   name: kota-pokedex
 build:
+  local:
+    push: false
+    useBuildkit: true
+    concurrency: 0
   artifacts:
-    - image: kota-pokedex
+    - image: kota-pokedex-api
       context: ..
       docker:
         dockerfile: infra/docker/Dockerfile
+        target: api
+    - image: kota-pokedex-web
+      context: ..
+      docker:
+        dockerfile: infra/docker/Dockerfile
+        target: web
 manifests:
   rawYaml:
     - kubernetes/*.yaml
@@ -15,6 +25,18 @@ deploy:
   kubectl: {}
 portForward:
   - resourceType: service
-    resourceName: kota-pokedex
+    resourceName: kota-pokedex-api
     port: 8080
     localPort: 8080
+  - resourceType: service
+    resourceName: kota-pokedex-web
+    port: 80
+    localPort: 4200
+  - resourceType: service
+    resourceName: redis
+    port: 6379
+    localPort: 6379
+  - resourceType: service
+    resourceName: aspire-dashboard
+    port: 18888
+    localPort: 18888

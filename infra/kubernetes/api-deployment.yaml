@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kota-pokedex-api
+  labels:
+    app: kota-pokedex-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kota-pokedex-api
+  template:
+    metadata:
+      labels:
+        app: kota-pokedex-api
+    spec:
+      containers:
+        - name: api
+          image: kota-pokedex-api
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: Cache__Provider
+              value: Redis
+            - name: ConnectionStrings__redis
+              value: redis:6379
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://aspire-dashboard:18889
+            - name: OTEL_SERVICE_NAME
+              value: kota-pokedex-api

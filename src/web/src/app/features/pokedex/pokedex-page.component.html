@@ -1,0 +1,52 @@
+<div class="pokedex">
+  <header class="pokedex__header">
+    <h1>Kota Pokédex</h1>
+    <p>Search and filter Pokémon — cards show sprites and active filters.</p>
+  </header>
+
+  <app-filter-toolbar
+    [types]="types"
+    [generations]="generations"
+    [abilities]="abilities"
+    [loadingAbilities]="loadingAbilities"
+    [value]="filterValue"
+    (valueChange)="onFiltersChange($event)"
+    (abilitySearch)="onAbilitySearch($event)"
+  />
+
+  <div class="pokedex__status">
+    @if (loading) {
+      <span class="status-pill status-pill--loading">Loading…</span>
+    }
+    @if (results && !loading) {
+      <span class="status-pill">
+        {{ results.totalCount }} result{{ results.totalCount === 1 ? '' : 's' }}
+        · page {{ results.page }} / {{ results.totalPages || 1 }}
+        · {{ pageSize }} per page
+      </span>
+    }
+    @if (error) {
+      <span class="status-pill status-pill--error">{{ error }}</span>
+    }
+  </div>
+
+  <div #gridHost class="pokedex__grid">
+    @if (results?.items?.length) {
+      @for (pokemon of results!.items; track pokemon.id) {
+        <app-pokemon-card [pokemon]="pokemon" />
+      }
+    } @else if (!loading && !error) {
+      <div class="pokedex__empty">No Pokémon match the current filters.</div>
+    }
+  </div>
+
+  @if (results && results.totalPages > 1) {
+    <nav class="pokedex__pager" aria-label="Pagination">
+      <button type="button" [disabled]="page <= 1 || loading" (click)="goToPage(page - 1)">Previous</button>
+      <span>Page {{ page }} of {{ results.totalPages }}</span>
+      <button type="button" [disabled]="page >= results.totalPages || loading" (click)="goToPage(page + 1)">
+        Next
+      </button>
+    </nav>
+  }
+</div>
