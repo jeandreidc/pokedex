@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kota-pokedex-web
+  labels:
+    app: kota-pokedex-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kota-pokedex-web
+  template:
+    metadata:
+      labels:
+        app: kota-pokedex-web
+    spec:
+      containers:
+        - name: web
+          image: kota-pokedex-web
+          ports:
+            - containerPort: 80

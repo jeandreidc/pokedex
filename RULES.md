@@ -6,7 +6,9 @@
 - ✅ Core layer must NOT reference Application, Infrastructure, or API layers
 - ✅ Application layer can reference Core layer only
 - ✅ Infrastructure layer can reference Core and Application layers
-- ✅ API layer can reference all layers
+- ✅ API layer can reference Application and Infrastructure (via DI)
+- ✅ Frontend (`src/web/`) is independent — communicates with API via HTTP only
+- ❌ Frontend must NOT call PokeAPI directly
 - ❌ NO circular dependencies
 
 ### 2. No Framework Dependencies in Core

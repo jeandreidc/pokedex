@@ -1,11 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+    <ItemGroup>
+      <ProjectReference Include="..\Kota.Pokedex.Application\Kota.Pokedex.Application.csproj" />
+      <ProjectReference Include="..\Kota.Pokedex.Infrastructure\Kota.Pokedex.Infrastructure.csproj" />
+      <ProjectReference Include="..\Kota.Pokedex.ServiceDefaults\Kota.Pokedex.ServiceDefaults.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    </ItemGroup>
+
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>Kota.Pokedex.Api</RootNamespace>
         <AssemblyName>Kota.Pokedex.Api</AssemblyName>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
 
 </Project>

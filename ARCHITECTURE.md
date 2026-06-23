@@ -1,56 +1,105 @@
 # .NET Architecture Guidelines
 
+## Full-Stack Overview
+
+Ang Pokedex ay **full-stack application** — hiwalay ang frontend SPA at .NET backend API. Ang frontend ay presentation layer; ang API ay backend entry point lang. Lahat ng PokeAPI calls ay dadaan sa backend (caching, rate limiting, data transformation).
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Browser                                                         │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  web/ (Angular + TypeScript)                               │  │
+│  │  Pages → Components → services → HttpClient (API)        │  │
+│  └────────────────────────────┬───────────────────────────────┘  │
+└───────────────────────────────┼──────────────────────────────────┘
+                                │ HTTP (REST / JSON)
+                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Kota.Pokedex.Api                                                │
+│  Controllers → IMediator → Commands / Queries                    │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+          ┌─────────────────────┼─────────────────────┐
+          ▼                     ▼                     ▼
+   [SQLite / EF Core]    [PokeAPI Client]      [Memory Cache]
+   Collection data       External data         Rate-limit shield
+```
+
+**Key rule:** Ang frontend ay **hindi** tumatawag directly sa PokeAPI. Tanging ang backend ang may access sa external API.
+
 ## Project Structure
 
 ```
 Kota.Pokedex/
-├── src/                             # Application source code
-│   ├── Kota.Pokedex.Api/            # Web API entry point
+├── src/
+│   ├── web/                         # Frontend SPA (Angular)
+│   │   ├── src/
+│   │   │   ├── app/
+│   │   │   │   ├── core/            # Services, interceptors, API client
+│   │   │   │   ├── shared/          # Reusable UI components
+│   │   │   │   └── features/        # Feature modules (e.g. pokedex/)
+│   │   │   ├── environments/        # environment.ts (API URL per env)
+│   │   │   └── main.ts
+│   │   ├── angular.json
+│   │   ├── package.json
+│   │   └── proxy.conf.json          # Dev proxy → API (avoids CORS locally)
+│   │
+│   ├── Kota.Pokedex.Api/            # Backend REST API
+│   │   ├── Controllers/             # HTTP endpoints
+│   │   ├── Middleware/              # Exception handling, CORS
+│   │   └── Program.cs               # DI and startup
+│   │
 │   ├── Kota.Pokedex.Core/           # Domain logic, entities, interfaces
-│   │   ├── Entities/                # Domain models
-│   │   ├── Interfaces/              # Abstractions (IRepository, IReadStore)
-│   │   ├── Exceptions/              # Custom exceptions
-│   │   └── Constants/               # Domain constants
+│   │   ├── Entities/
+│   │   ├── Interfaces/
+│   │   ├── Exceptions/
+│   │   └── Constants/
 │   │
 │   ├── Kota.Pokedex.Application/    # Use cases via CQRS
-│   │   ├── Commands/                # Write operations (Create, Update, Delete)
-│   │   │   └── Pokemon/
-│   │   │       ├── CreatePokemonCommand.cs
-│   │   │       ├── CreatePokemonCommandHandler.cs
-│   │   │       └── CreatePokemonCommandValidator.cs
-│   │   ├── Queries/                 # Read operations (Get, List, Search)
-│   │   │   └── Pokemon/
-│   │   │       ├── GetPokemonByIdQuery.cs
-│   │   │       └── GetPokemonByIdQueryHandler.cs
-│   │   ├── DTOs/                    # Data transfer objects
-│   │   ├── Mapping/                 # AutoMapper profiles
-│   │   └── Behaviors/               # MediatR pipeline (validation, logging)
+│   │   ├── Commands/
+│   │   ├── Queries/
+│   │   ├── DTOs/                    # API contracts (mirrored sa frontend types)
+│   │   ├── Mapping/
+│   │   └── Behaviors/
 │   │
-│   └── Kota.Pokedex.Infrastructure/ # EF Core, external APIs, implementations
-│       ├── Persistence/             # DbContext, migrations
-│       ├── Repositories/            # Write-side repository implementations
-│       ├── ReadStores/              # Read-optimized query implementations (optional)
-│       ├── ExternalServices/        # Third-party integrations
-│       └── Configuration/           # Infrastructure setup
+│   └── Kota.Pokedex.Infrastructure/ # EF Core, PokeAPI client, caching
+│       ├── Persistence/
+│       ├── Repositories/
+│       ├── ExternalServices/        # PokeAPI integration
+│       └── Configuration/
 │
-├── tests/                           # Test projects
-│   ├── Kota.Pokedex.Tests.Unit/     # Unit tests
-│   ├── Kota.Pokedex.Tests.Integration/ # Integration tests
-│   └── Kota.Pokedex.Tests.E2E/      # End-to-end tests
+├── tests/
+│   ├── Kota.Pokedex.Tests.Unit/
+│   ├── Kota.Pokedex.Tests.Integration/
+│   └── Kota.Pokedex.Tests.E2E/      # Playwright vs full stack
 │
-├── infra/                           # Deployment & platform scaffolding
-│   ├── skaffold.yaml                # Skaffold config (build + deploy loop)
+├── infra/
+│   ├── skaffold.yaml
 │   ├── docker/
-│   │   └── Dockerfile               # Container image definition
+│   │   ├── Dockerfile.api           # Backend container
+│   │   └── Dockerfile.web           # Frontend container (nginx + static build)
 │   └── kubernetes/
-│       ├── deployment.yaml          # K8s deployment manifest
-│       └── service.yaml             # K8s service manifest
+│       ├── api-deployment.yaml
+│       ├── api-service.yaml
+│       ├── web-deployment.yaml
+│       └── web-service.yaml
 │
 ├── ARCHITECTURE.md
 ├── CODING_STANDARDS.md
 ├── RULES.md
-└── Kota.Pokedex.sln
+└── Kota.Pokedex.sln                 # .NET projects only; web/ managed by npm
 ```
+
+### Layer Responsibilities
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| **Frontend** | `src/web/` | UI, user interaction, calls backend API only |
+| **API** | `src/Kota.Pokedex.Api/` | HTTP endpoints, CORS, auth boundary, dispatches CQRS |
+| **Application** | `src/Kota.Pokedex.Application/` | Use cases — Commands & Queries |
+| **Core** | `src/Kota.Pokedex.Core/` | Domain entities, interfaces, business rules |
+| **Infrastructure** | `src/Kota.Pokedex.Infrastructure/` | EF Core, PokeAPI client, cache, repos |
+| **Infra (deploy)** | `infra/` | Docker, Skaffold, Kubernetes manifests |
 
 ### Infra Folder
 
@@ -58,9 +107,20 @@ Ang `infra/` ay para sa **deployment scaffolding** — hiwalay sa `src/Kota.Poke
 
 | Path | Purpose |
 |------|---------|
-| `infra/skaffold.yaml` | Skaffold pipeline — build image, deploy sa K8s, port-forward |
-| `infra/docker/Dockerfile` | Multi-stage Docker build para sa API |
-| `infra/kubernetes/` | Kubernetes manifests (Deployment, Service, etc.) |
+| `infra/skaffold.yaml` | Skaffold pipeline — build API + web, deploy sa K8s |
+| `infra/docker/Dockerfile.api` | Multi-stage Docker build para sa API |
+| `infra/docker/Dockerfile.web` | Angular build + nginx para sa frontend |
+| `infra/kubernetes/` | K8s manifests para sa API at web services |
+
+**Local dev** (recommended — hot reload para sa both):
+
+```bash
+# Terminal 1 — Backend
+dotnet run --project src/Kota.Pokedex.Api
+
+# Terminal 2 — Frontend
+cd src/web && ng serve
+```
 
 **Local dev with Skaffold** (from `infra/` directory):
 
@@ -69,13 +129,19 @@ cd infra
 skaffold dev
 ```
 
-## Layered Architecture with CQRS
+## Backend Architecture with CQRS
 
 **CQRS (Command Query Responsibility Segregation)** — hiwalay ang write path (Commands) at read path (Queries). Ang bawat use case ay isang maliit, focused handler na dispatched via **MediatR**.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  API Layer                                              │
+│  Frontend (web/)                                        │
+│  HttpClient → /api/pokemon                              │
+└──────────────────────────┬──────────────────────────────┘
+                           │ HTTP
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│  API Layer (Kota.Pokedex.Api)                           │
 │  Controller → IMediator.Send(command | query)           │
 └──────────────────────────┬──────────────────────────────┘
                            │
@@ -83,21 +149,64 @@ skaffold dev
           ▼                                 ▼
 ┌─────────────────────┐         ┌─────────────────────┐
 │  Commands (Write)   │         │  Queries (Read)     │
-│  CreatePokemon      │         │  GetPokemonById     │
-│  UpdatePokemon      │         │  GetAllPokemon      │
-│  DeletePokemon      │         │  SearchPokemon      │
+│  MarkFavorite       │         │  SearchPokemon      │
+│  MarkCaught         │         │  GetCollectionStats │
 └──────────┬──────────┘         └──────────┬──────────┘
            │                               │
            ▼                               ▼
 ┌─────────────────────┐         ┌─────────────────────┐
-│  IRepository        │         │  IRepository /      │
-│  (write model)      │         │  IReadStore         │
+│  IRepository        │         │  IPokeApiClient /   │
+│  (SQLite)           │         │  IReadStore + Cache │
 └──────────┬──────────┘         └──────────┬──────────┘
            │                               │
            └───────────────┬───────────────┘
                            ▼
-                    [Database / External API]
+              [SQLite]          [PokeAPI]
 ```
+
+### 0. Frontend Layer
+**Responsibility**: Presentation, user interaction, consuming backend API
+
+- Angular + TypeScript SPA sa `src/web/`
+- API calls via `HttpClient` services sa `core/services/` — hindi scattered calls sa components
+- TypeScript interfaces sa `core/models/` — mirror ng backend DTOs
+- `proxy.conf.json` sa dev para iwas CORS issues locally (`ng serve` → proxies `/api` to backend)
+
+```typescript
+// src/web/src/app/core/services/pokemon.service.ts
+@Injectable({ providedIn: 'root' })
+export class PokemonService {
+  private readonly baseUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  searchPokemon(params: SearchParams): Observable<PagedResult<PokemonSummary>> {
+    return this.http.get<PagedResult<PokemonSummary>>(`${this.baseUrl}/pokemon`, {
+      params: { ...params } as Record<string, string>
+    });
+  }
+}
+```
+
+```json
+// src/web/proxy.conf.json — dev proxy
+{
+  "/api": {
+    "target": "http://localhost:5164",
+    "secure": false
+  }
+}
+```
+
+```bash
+# Run with proxy
+ng serve --proxy-config proxy.conf.json
+```
+
+**Frontend rules:**
+- ❌ Walang direct PokeAPI calls mula sa browser
+- ✅ Loading at error states sa bawat page
+- ✅ Models/interfaces aligned sa Application DTOs
 
 ### 1. Core (Domain) Layer
 **Responsibility**: Business rules and domain logic
@@ -266,13 +375,13 @@ public class PokemonRepository : IPokemonRepository {
 }
 ```
 
-### 4. API (Presentation) Layer
-**Responsibility**: HTTP endpoints, request/response handling
+### 4. API Layer (Backend)
+**Responsibility**: HTTP boundary between frontend at backend — **hindi** presentation layer
 
 - Controllers dispatch Commands/Queries via `IMediator`
-- Request/response models
-- Middleware
-- Filters
+- CORS policy para sa frontend origin
+- Global exception handling → consistent JSON error responses
+- Walang business logic sa controllers — dispatch lang
 
 ```csharp
 // Kota.Pokedex.Api/Controllers/PokemonController.cs
@@ -283,18 +392,25 @@ public class PokemonController : ControllerBase {
 
     public PokemonController(IMediator mediator) => _mediator = mediator;
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<PokemonDto>> GetPokemon(int id) {
-        var pokemon = await _mediator.Send(new GetPokemonByIdQuery(id));
-        return pokemon is null ? NotFound() : Ok(pokemon);
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<PokemonDto>> CreatePokemon(CreatePokemonCommand command) {
-        var pokemon = await _mediator.Send(command);
-        return CreatedAtAction(nameof(GetPokemon), new { id = pokemon.Id }, pokemon);
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<PokemonSummaryDto>>> Search(
+        [FromQuery] SearchPokemonQuery query) {
+        return Ok(await _mediator.Send(query));
     }
 }
+```
+
+```csharp
+// Kota.Pokedex.Api/Program.cs — CORS for frontend
+builder.Services.AddCors(options =>
+    options.AddPolicy("Frontend", policy =>
+        policy.WithOrigins(builder.Configuration["Frontend:Url"] ?? "http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()));
+
+var app = builder.Build();
+app.UseCors("Frontend");
+app.MapControllers();
 ```
 
 ## Dependency Injection
@@ -454,7 +570,47 @@ public class ExceptionHandlingMiddleware {
 
 ## Data Flow
 
-### Query (Read)
+### Search (Read — full stack)
+```
+User types sa search bar (web/)
+   ↓
+[SearchPage] → searchPokemon({ search, type, page })
+   ↓
+GET /api/pokemon?search=pika&type=fire&page=1
+   ↓
+[PokemonController] → _mediator.Send(SearchPokemonQuery)
+   ↓
+[SearchPokemonQueryHandler] → IPokeApiClient + cache
+   ↓
+[PokeAPI] → raw data → normalized PagedResult<PokemonSummaryDto>
+   ↓
+[Controller] → 200 OK JSON
+   ↓
+[SearchPage] → renders paginated grid
+```
+
+### Mark Favorite (Write — full stack)
+```
+User clicks ♥ (web/)
+   ↓
+[CollectionPage] → markFavorite({ pokemonId })
+   ↓
+POST /api/collection/favorites
+   ↓
+[CollectionController] → _mediator.Send(MarkFavoriteCommand)
+   ↓
+[ValidationBehavior] → FluentValidation
+   ↓
+[MarkFavoriteCommandHandler] → repository.AddAsync
+   ↓
+[SQLite] → INSERT
+   ↓
+[Controller] → 201 Created
+   ↓
+[CollectionPage] → updates UI state
+```
+
+### Backend-only: Query (Read)
 ```
 GET /api/pokemon/{id}
    ↓
@@ -462,28 +618,24 @@ GET /api/pokemon/{id}
    ↓
 [ValidationBehavior] → skip (queries typically have no validators)
    ↓
-[GetPokemonByIdQueryHandler] → calls repository
-   ↓
-[Repository] → SELECT from database
+[GetPokemonByIdQueryHandler] → calls repository / PokeAPI client
    ↓
 [Mapper] → entity → PokemonDto
    ↓
 [Controller] → 200 OK
 ```
 
-### Command (Write)
+### Backend-only: Command (Write)
 ```
-POST /api/pokemon
+POST /api/collection/favorites
    ↓
-[Controller] → _mediator.Send(new CreatePokemonCommand(...))
+[Controller] → _mediator.Send(new MarkFavoriteCommand(...))
    ↓
 [ValidationBehavior] → FluentValidation rules
    ↓
-[CreatePokemonCommandHandler] → business logic + repository.AddAsync
+[MarkFavoriteCommandHandler] → business logic + repository.AddAsync
    ↓
-[Repository] → INSERT into database
-   ↓
-[Mapper] → entity → PokemonDto
+[Repository] → INSERT into SQLite
    ↓
 [Controller] → 201 Created
 ```
