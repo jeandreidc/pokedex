@@ -29,9 +29,9 @@ public class PokemonIndexService : IPokemonIndexService {
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default) {
-        _logger.LogInformation("Starting Pokemon index warmup...");
-        await GetIndexAsync(cancellationToken);
-        _logger.LogInformation("Pokemon index warmup complete.");
+        _logger.LogInformation("Starting Pokemon index warmup");
+        var index = await GetIndexAsync(cancellationToken);
+        _logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
     }
 
     public async Task<IReadOnlyList<PokemonIndexEntry>> GetIndexAsync(CancellationToken cancellationToken = default) {

@@ -39,10 +39,10 @@ public class PokemonPrefetchHostedService : IHostedService {
             await filterMetadata.WarmupAsync(cancellationToken);
         }
         catch (OperationCanceledException) {
-            _logger.LogInformation("Pokemon index prefetch cancelled.");
+            _logger.LogInformation("Startup prefetch cancelled during {Phase}", "warmup");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Pokemon index prefetch failed during startup.");
+            _logger.LogError(ex, "Startup prefetch failed during {Phase}", "warmup");
         }
     }
 }

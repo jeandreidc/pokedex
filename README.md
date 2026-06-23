@@ -408,12 +408,52 @@ All list endpoints return `PagedResult<T>` with `items`, `page`, `pageSize`, `to
 
 ---
 
+### 18. Structured JSON logging (`ILogger<T>`)
+
+All backend logging uses **`ILogger<T>`** injected via DI with **message templates** — never string interpolation in log calls. Properties in `{CurlyBraces}` become queryable fields in the log output.
+
+Console output is **JSON** via `AddJsonConsole()` in `Kota.Pokedex.ServiceDefaults` (one JSON object per line). When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, the same logs are also exported to the Aspire Dashboard alongside traces and metrics.
+
+Example log call:
+
+```csharp
+_logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
+```
+
+Example JSON line written to stdout:
+
+```json
+{
+  "Timestamp": "2026-06-23T12:00:00.0000000Z",
+  "LogLevel": "Information",
+  "Category": "Kota.Pokedex.Infrastructure.Services.PokemonIndexService",
+  "Message": "Pokemon index warmup complete with 1025 entries",
+  "EntryCount": 1025
+}
+```
+
+**Why JSON:** Machine-parseable logs for local dev, containers, and K8s (`kubectl logs`) without adding Serilog or another logging framework. **Why message templates:** Preserves structured fields instead of embedding values in the message string, so log aggregators and Aspire can filter on `{Path}`, `{EntryCount}`, `{Method}`, etc.
+
+**Rules:**
+- ✅ `_logger.LogDebug("PokeAPI GET {Path}", path)`
+- ❌ `_logger.LogDebug($"PokeAPI GET {path}")`
+- ✅ Pass exceptions as the first argument: `_logger.LogError(ex, "...")`
+
+---
+
 ## Configuration
 
 `src/Kota.Pokedex.Api/appsettings.json`:
 
 ```json
 {
+  "Logging": {
+    "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" },
+    "Console": {
+      "FormatterName": "json",
+      "FormatterOptions": { "TimestampFormat": "O", "UseUtcTimestamp": true, "IncludeScopes": true }
+    }
+  },
   "Cache": { "Provider": "Memory", "DefaultTtlMinutes": 1440 },
   "ConnectionStrings": { "redis": "localhost:6379" },
   "RateLimiting": { "PermitLimit": 100, "WindowMinutes": 1 },

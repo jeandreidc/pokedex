@@ -15,12 +15,27 @@ public static class Extensions {
     private const string AlivenessEndpointPath = "/alive";
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder {
+        builder.ConfigureJsonLogging();
         builder.ConfigureOpenTelemetry();
         builder.AddDefaultHealthChecks();
         builder.Services.AddServiceDiscovery();
         builder.Services.ConfigureHttpClientDefaults(http => {
             http.AddStandardResilienceHandler();
         });
+        return builder;
+    }
+
+    public static TBuilder ConfigureJsonLogging<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder {
+        builder.Logging.ClearProviders();
+        builder.Logging.AddJsonConsole(options => {
+            options.IncludeScopes = true;
+            options.TimestampFormat = "O";
+            options.UseUtcTimestamp = true;
+            options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions {
+                Indented = false
+            };
+        });
+
         return builder;
     }
 

@@ -34,11 +34,15 @@ public class FilterMetadataService : IFilterMetadataService {
         GetOrLoadAsync(CacheKeys.FilterGenerations, LoadGenerationsAsync, cancellationToken);
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default) {
-        _logger.LogInformation("Prefetching filter metadata for dropdowns...");
-        await GetTypesAsync(cancellationToken);
-        await GetGenerationsAsync(cancellationToken);
-        await GetAbilitiesAsync(cancellationToken);
-        _logger.LogInformation("Filter metadata prefetch complete.");
+        _logger.LogInformation("Starting filter metadata prefetch");
+        var types = await GetTypesAsync(cancellationToken);
+        var generations = await GetGenerationsAsync(cancellationToken);
+        var abilities = await GetAbilitiesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Filter metadata prefetch complete with {TypeCount} types, {GenerationCount} generations, {AbilityCount} abilities",
+            types.Count,
+            generations.Count,
+            abilities.Count);
     }
 
     private async Task<IReadOnlyList<FilterOption>> GetOrLoadAsync(
