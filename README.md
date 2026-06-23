@@ -13,12 +13,21 @@ A full-stack Pokedex application built for a take-home exercise. This repository
 - Filter metadata endpoints for Angular dropdowns
 - All PokeAPI access goes through the backend (no direct browser calls)
 
+<img width="1222" height="1219" alt="image" src="https://github.com/user-attachments/assets/1c02fc77-1200-4472-aaac-e18d48ad092a" />
+
+
 ### #5 — Favorites / Collection Tracker
 
 - Per-user favorites and caught status (JWT auth, SQLite persistence)
-- Collection sidebar (favorites, caught, generation stats)
+- Collection sidebar (favorites, caught, **Status** with overall progress bar + generation rings)
 - Optimistic UI on Pokémon cards (heart + pokeball)
 - Secured CRUD API for collection entries
+
+<img width="476" height="342" alt="image" src="https://github.com/user-attachments/assets/b0283a68-58e2-4201-b83d-001a91bb653a" />
+
+<img width="477" height="727" alt="image" src="https://github.com/user-attachments/assets/a6f7b1d0-f503-4bcb-8d2b-92cea935de95" />
+
+
 
 ---
 
@@ -30,6 +39,7 @@ The features, UI, and infrastructure choices below were picked to make this samp
 
 - **Usability first** — filters, sprites on cards, and a collection sidebar so it feels like you are building a personal Pokédex, not scrolling a plain list.
 - **Visual, familiar workflow** — the browse → pick → review flow mimics **online shopping** (e.g. Amazon): search the catalog, add Pokémon with heart / caught actions on the card, then open the **slide-out collection** to see what you gathered.
+- **Status tab — gamified progress** — even though collection is **basic CRUD** under the hood, the **Status** view is designed to feel more like a game: an **overall “All Pokémon” progress bar**, plus **per-generation rings** with caught counts and color-coded completion %. It gives visual feedback that you are “filling the Pokédex,” not just updating rows in a database.
 - **Pagination vs infinite scroll** — pagination could be polished further (e.g. infinite scroll). For this scope, **explicit pages are enough**: predictable API load, clear “page X of Y”, and simpler to test. With more time, infinite scroll would be a nice UX upgrade.
 
 ### Tech stack
