@@ -1,0 +1,104 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  &__brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  &__logo {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1a1f2e;
+    text-decoration: none;
+  }
+
+  &__tagline {
+    font-size: 0.72rem;
+    color: #6b7280;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  &__user {
+    font-size: 0.85rem;
+    color: #374151;
+    margin-right: 0.25rem;
+  }
+
+  &__cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #f9fafb;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #1f2937;
+
+    &:hover {
+      background: #f3f4f6;
+    }
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: #374151;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+
+    &--primary {
+      background: #2563eb;
+      color: #fff;
+
+      &:hover {
+        background: #1d4ed8;
+      }
+    }
+
+    &--ghost:hover {
+      background: #f3f4f6;
+    }
+  }
+}

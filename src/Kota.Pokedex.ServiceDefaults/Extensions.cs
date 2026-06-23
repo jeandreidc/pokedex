@@ -5,6 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -44,8 +45,9 @@ public static class Extensions {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
         });
+        builder.Logging.AddFilter<OpenTelemetryLoggerProvider>(null, LogLevel.Information);
 
-        builder.Services.AddOpenTelemetry()
+        var openTelemetry = builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
@@ -56,14 +58,8 @@ public static class Extensions {
                     .AddHttpClientInstrumentation();
             });
 
-        builder.AddOpenTelemetryExporters();
-        return builder;
-    }
-
-    private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder {
-        var useOtlp = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-        if (useOtlp) {
-            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"])) {
+            openTelemetry.UseOtlpExporter();
         }
 
         return builder;

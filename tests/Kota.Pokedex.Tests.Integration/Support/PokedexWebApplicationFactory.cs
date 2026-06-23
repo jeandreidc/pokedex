@@ -16,6 +16,11 @@ public sealed class PokedexWebApplicationFactory : WebApplicationFactory<Program
 
         builder.ConfigureAppConfiguration((_, config) => {
             config.AddInMemoryCollection(new Dictionary<string, string?> {
+                ["ConnectionStrings:PokedexDb"] = "Data Source=integration-tests.db",
+                ["Jwt:Secret"] = "integration-test-secret-min-32-chars-long",
+                ["Jwt:Issuer"] = "Kota.Pokedex",
+                ["Jwt:Audience"] = "Kota.Pokedex.Client",
+                ["Jwt:ExpiryMinutes"] = "60",
                 ["RateLimiting:PermitLimit"] = "10000",
                 ["RateLimiting:WindowMinutes"] = "1",
                 ["Logging:LogLevel:Default"] = "Warning",

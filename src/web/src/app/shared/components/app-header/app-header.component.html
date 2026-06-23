@@ -1,0 +1,23 @@
+<header class="app-header">
+  <div class="app-header__brand">
+    <a routerLink="/" class="app-header__logo">Kota Pokédex</a>
+    <span class="app-header__tagline">Search, filter &amp; track your collection</span>
+  </div>
+
+  <nav class="app-header__nav">
+    @if (isAuthenticated()) {
+      <span class="app-header__user">Hi, {{ username() }}</span>
+      <button type="button" class="app-header__cart" (click)="openCart()" aria-label="Open collection">
+        <span class="app-header__cart-icon" aria-hidden="true">🎒</span>
+        Collection
+        @if (cartCount() > 0) {
+          <span class="app-header__badge">{{ cartCount() }}</span>
+        }
+      </button>
+      <button type="button" class="app-header__btn app-header__btn--ghost" (click)="logout()">Logout</button>
+    } @else {
+      <a routerLink="/login" routerLinkActive="is-active" class="app-header__btn">Login</a>
+      <a routerLink="/register" routerLinkActive="is-active" class="app-header__btn app-header__btn--primary">Register</a>
+    }
+  </nav>
+</header>

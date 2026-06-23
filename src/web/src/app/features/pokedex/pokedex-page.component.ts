@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { Subject, debounceTime, distinctUntilChanged, forkJoin, switchMap, takeUntil } from 'rxjs';
 import { ActiveFilters, FilterOption, PagedResult, PokemonSummary } from '../../core/models/api.models';
+import { CollectionStore } from '../../core/services/collection.store';
 import { FilterApiService } from '../../core/services/filter-api.service';
 import { PokemonApiService } from '../../core/services/pokemon-api.service';
 import { computePageSize } from '../../core/utils/pokemon.utils';
@@ -25,6 +26,7 @@ import { PokemonCardComponent } from './components/pokemon-card/pokemon-card.com
 export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly pokemonApi = inject(PokemonApiService);
   private readonly filterApi = inject(FilterApiService);
+  private readonly collectionStore = inject(CollectionStore);
   private readonly destroy$ = new Subject<void>();
   private readonly filterChange$ = new Subject<void>();
   private readonly abilitySearch$ = new Subject<string>();
@@ -172,6 +174,10 @@ export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.results = null;
         }
       });
+  }
+
+  getCollectionState(pokemonId: number) {
+    return this.collectionStore.getState(pokemonId);
   }
 
   private buildActiveFilters(): ActiveFilters {

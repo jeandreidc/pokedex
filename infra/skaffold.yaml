@@ -20,18 +20,36 @@ build:
         target: web
 manifests:
   rawYaml:
-    - kubernetes/*.yaml
+    - kubernetes/redis-deployment.yaml
+    - kubernetes/redis-service.yaml
+    - kubernetes/aspire-dashboard-deployment.yaml
+    - kubernetes/aspire-dashboard-service.yaml
+    - kubernetes/api-deployment.yaml
+    - kubernetes/api-service.yaml
+    - kubernetes/web-deployment.yaml
+    - kubernetes/web-service.yaml
 deploy:
-  kubectl: {}
+  kubectl:
+    hooks:
+      before:
+        # Persistent resources — survive skaffold dev cleanup
+        - host:
+            command:
+              - sh
+              - -c
+              - kubectl apply -f kubernetes/api-secret.yaml -f kubernetes/api-pvc.yaml -f kubernetes/aspire-dashboard-pvc.yaml
+  statusCheckDeadlineSeconds: 300
+  logs:
+    prefix: auto
 portForward:
-  - resourceType: service
-    resourceName: kota-pokedex-api
-    port: 8080
-    localPort: 8080
   - resourceType: service
     resourceName: kota-pokedex-web
     port: 80
     localPort: 4200
+  - resourceType: service
+    resourceName: kota-pokedex-api
+    port: 8080
+    localPort: 8080
   - resourceType: service
     resourceName: redis
     port: 6379
@@ -40,3 +58,7 @@ portForward:
     resourceName: aspire-dashboard
     port: 18888
     localPort: 18888
+  - resourceType: service
+    resourceName: aspire-dashboard
+    port: 18889
+    localPort: 18889
