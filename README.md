@@ -37,6 +37,7 @@ The features, UI, and infrastructure choices below were picked to make this samp
 - **C# / .NET + Angular** — chosen because these are where I am **most familiar**, which let me focus on product and architecture instead of fighting the stack.
 - **Observability (traces, structured logs, metrics)** — added as nice-to-haves, mostly **force of habit** from day-to-day work, and to confirm I could wire **OpenTelemetry → Aspire Dashboard** end-to-end in this repo (including custom counters for favorites, caught, register, and login).
 - **Skaffold** — one command (`skaffold dev`) runs **API, web, Redis, and Aspire Dashboard** together in Kubernetes, so reviewers and I don’t have to start each piece manually during demos.
+- **GitHub Actions CI** — basic workflow on push/PR: `dotnet restore`, `build` (Release), unit tests, and integration tests (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ### Backend architecture
 
