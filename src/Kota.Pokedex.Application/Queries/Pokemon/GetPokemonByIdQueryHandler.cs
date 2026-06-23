@@ -25,12 +25,14 @@ public class GetPokemonByIdQueryHandler : IRequestHandler<GetPokemonByIdQuery, P
             return null;
         }
 
-        var types = await _indexService.GetTypesForPokemonAsync(entry.Id, cancellationToken);
+        var details = await _indexService.GetPokemonCardDetailsAsync(entry.Id, cancellationToken);
         return new PokemonSummaryDto {
             Id = entry.Id,
             Name = entry.Name,
             SpriteUrl = entry.SpriteUrl,
-            Types = types.ToList()
+            Types = details.Types.ToList(),
+            Abilities = details.Abilities.ToList(),
+            Generation = details.Generation
         };
     }
 }

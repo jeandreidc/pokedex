@@ -1,0 +1,36 @@
+<article class="pokemon-card">
+  <div class="pokemon-card__avatar" [style.border-color]="primaryTypeColor()">
+    <img [src]="pokemon.spriteUrl" [alt]="formatName(pokemon.name)" loading="lazy" />
+  </div>
+
+  <div class="pokemon-card__body">
+    <header class="pokemon-card__header">
+      <div class="pokemon-card__title-row">
+        <span class="pokemon-card__id">#{{ pokemon.id.toString().padStart(4, '0') }}</span>
+        <h3 class="pokemon-card__name">{{ formatName(pokemon.name) }}</h3>
+      </div>
+      @if (genLabel) {
+        <span class="pokemon-card__gen">{{ genLabel }}</span>
+      }
+    </header>
+
+    @if (types.length) {
+      <div class="pokemon-card__badge-row">
+        @for (type of types; track type) {
+          <span class="capsule capsule--type" [style.background-color]="typeColor(type)">{{ type }}</span>
+        }
+      </div>
+    }
+
+    @if (abilities.length) {
+      <div class="pokemon-card__section">
+        <span class="pokemon-card__label">Abilities</span>
+        <div class="pokemon-card__badge-row">
+          @for (ability of abilities; track ability) {
+            <span class="capsule capsule--ability">{{ ability }}</span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</article>

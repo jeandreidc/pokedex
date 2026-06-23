@@ -31,6 +31,7 @@ public class PokemonIndexService : IPokemonIndexService {
     public async Task WarmupAsync(CancellationToken cancellationToken = default) {
         _logger.LogInformation("Starting Pokemon index warmup");
         var index = await GetIndexAsync(cancellationToken);
+        await GetPokemonGenerationMapAsync(cancellationToken);
         _logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
     }
 
@@ -122,17 +123,78 @@ public class PokemonIndexService : IPokemonIndexService {
         return index.FirstOrDefault(e => e.Id == id);
     }
 
-    public async Task<IReadOnlyList<string>> GetTypesForPokemonAsync(int id, CancellationToken cancellationToken = default) {
-        var key = CacheKeys.PokemonDetail(id);
-        var cached = await _cacheService.GetAsync<List<string>>(key, cancellationToken);
+    public async Task<PokemonCardDetails> GetPokemonCardDetailsAsync(int id, CancellationToken cancellationToken = default) {
+        var key = CacheKeys.PokemonCard(id);
+        var cached = await _cacheService.GetAsync<PokemonCardDetails>(key, cancellationToken);
         if (cached is not null) {
             return cached;
         }
 
         var detail = await _pokeApiClient.GetPokemonAsync(id.ToString(), cancellationToken);
-        var types = detail.Types.Select(t => t.Type.Name).ToList();
-        await _cacheService.SetAsync(key, types, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
-        return types;
+        var generationMap = await GetPokemonGenerationMapAsync(cancellationToken);
+
+        var cardDetails = new PokemonCardDetails {
+            Types = detail.Types
+                .OrderBy(t => t.Slot)
+                .Select(t => t.Type.Name)
+                .ToList(),
+            Abilities = detail.Abilities
+                .OrderBy(a => a.Slot)
+                .Select(a => FormatDisplayName(a.Ability.Name))
+                .ToList(),
+            Generation = generationMap.TryGetValue(id, out var generation) ? generation : null
+        };
+
+        await _cacheService.SetAsync(key, cardDetails, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
+        return cardDetails;
+    }
+
+    private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken) {
+        var cached = await _cacheService.GetAsync<Dictionary<int, string>>(CacheKeys.PokemonGenerationMap, cancellationToken);
+        if (cached is not null) {
+            return cached;
+        }
+
+        var index = await GetIndexAsync(cancellationToken);
+        var nameToId = index.ToDictionary(e => e.Name, e => e.Id, StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<int, string>();
+        var offset = 0;
+        PokeApiListResponse page;
+
+        do {
+            page = await _pokeApiClient.GetGenerationListAsync(100, offset, cancellationToken);
+            foreach (var generation in page.Results) {
+                var detail = await _pokeApiClient.GetGenerationAsync(generation.Name, cancellationToken);
+                var displayName = FormatGenerationName(detail.Name);
+                foreach (var species in detail.PokemonSpecies) {
+                    if (nameToId.TryGetValue(species.Name, out var pokemonId)) {
+                        map[pokemonId] = displayName;
+                    }
+                }
+            }
+
+            offset += 100;
+        } while (page.Next is not null);
+
+        await _cacheService.SetAsync(
+            CacheKeys.PokemonGenerationMap,
+            map,
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes * 7),
+            cancellationToken);
+
+        return map;
+    }
+
+    private static string FormatDisplayName(string name) =>
+        string.Join(' ', name.Split('-').Select(w =>
+            w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
+
+    private static string FormatGenerationName(string name) {
+        var roman = name.Replace("generation-", "", StringComparison.OrdinalIgnoreCase).ToUpperInvariant();
+        return roman switch {
+            "I" or "II" or "III" or "IV" or "V" or "VI" or "VII" or "VIII" or "IX" => roman,
+            _ => name
+        };
     }
 
     private static int ExtractIdFromUrl(string url) {

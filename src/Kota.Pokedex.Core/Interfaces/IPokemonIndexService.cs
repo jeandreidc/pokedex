@@ -9,5 +9,5 @@ public interface IPokemonIndexService {
     Task<IReadOnlySet<int>> GetPokemonIdsByAbilityAsync(string ability, CancellationToken cancellationToken = default);
     Task<IReadOnlySet<int>> GetPokemonIdsByGenerationAsync(string generation, CancellationToken cancellationToken = default);
     Task<PokemonIndexEntry?> GetEntryAsync(int id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> GetTypesForPokemonAsync(int id, CancellationToken cancellationToken = default);
+    Task<PokemonCardDetails> GetPokemonCardDetailsAsync(int id, CancellationToken cancellationToken = default);
 }

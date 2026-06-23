@@ -1,0 +1,54 @@
+<section class="filter-toolbar">
+  <div class="filter-toolbar__search">
+    <label for="search">Search</label>
+    <input
+      id="search"
+      type="search"
+      placeholder="Name contains…"
+      [(ngModel)]="value.search"
+      (ngModelChange)="onSearchInput()"
+    />
+  </div>
+
+  <div class="filter-toolbar__field">
+    <label for="type">Type</label>
+    <select id="type" [(ngModel)]="value.type" (ngModelChange)="onFieldChange()">
+      <option value="">All types</option>
+      @for (type of types; track type.name) {
+        <option [value]="type.name">{{ type.displayName }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="filter-toolbar__field">
+    <label for="ability">Ability</label>
+    <input
+      id="ability-search"
+      type="search"
+      placeholder="Search abilities…"
+      [(ngModel)]="abilityQuery"
+      (ngModelChange)="onAbilityQueryInput()"
+      [disabled]="loadingAbilities"
+    />
+    <select id="ability" [(ngModel)]="value.ability" (ngModelChange)="onFieldChange()" [disabled]="loadingAbilities">
+      <option value="">All abilities</option>
+      @for (ability of abilities; track ability.name) {
+        <option [value]="ability.name">{{ ability.displayName }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="filter-toolbar__field">
+    <label for="generation">Generation</label>
+    <select id="generation" [(ngModel)]="value.generation" (ngModelChange)="onFieldChange()">
+      <option value="">All generations</option>
+      @for (gen of generations; track gen.name) {
+        <option [value]="gen.name">{{ gen.displayName }}</option>
+      }
+    </select>
+  </div>
+
+  @if (hasActiveFilters) {
+    <button type="button" class="filter-toolbar__clear" (click)="clearFilters()">Clear</button>
+  }
+</section>

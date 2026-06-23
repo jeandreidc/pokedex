@@ -1,8 +1,6 @@
 # Kota Pokedex
 
-A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data with caching, rate limiting, and observability.
-
-The Angular frontend (`src/web/`) is planned separately; this README focuses on the backend delivered in this phase.
+A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data, plus an **Angular** frontend with searchable Pokémon cards.
 
 ---
 
@@ -45,6 +43,23 @@ dotnet run --project src/Kota.Pokedex.Api
 
 Uses in-memory cache (`Cache:Provider = Memory` in `appsettings.json`). Good for quick testing without Docker.
 
+### Option 4 — Angular frontend (with API)
+
+Terminal 1 — API:
+
+```bash
+dotnet run --project src/Kota.Pokedex.Api
+```
+
+Terminal 2 — Frontend (proxies `/api` → `http://localhost:5164`):
+
+```bash
+cd src/web
+npm start
+```
+
+Open **http://localhost:4200** — search/filter UI with Pokémon sprite cards.
+
 ### Option 3 — Skaffold (Kubernetes)
 
 Deploys API, Redis, and Aspire Dashboard to a local cluster.
@@ -86,7 +101,7 @@ GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1&pageSiz
 ```json
 {
   "items": [
-    { "id": 25, "name": "pikachu", "spriteUrl": "...", "types": ["electric"] }
+    { "id": 25, "name": "pikachu", "spriteUrl": "...", "types": ["electric"], "abilities": ["Static"], "generation": "I" }
   ],
   "page": 1,
   "pageSize": 20,
@@ -441,6 +456,29 @@ Example JSON line written to stdout:
 
 ---
 
+### 19. Angular card UI with `spriteUrl` images
+
+The frontend (`src/web/`) is an Angular standalone SPA that calls the backend API only. Each result is a **Pokémon card** — not a text-only list:
+
+| Element | Source |
+|---------|--------|
+| Circular sprite | `spriteUrl` from the API (prefetched index sprites) |
+| Name + `#id` | `name`, `id` |
+| Type badges | `types[]` with type-colored pills |
+| Ability + Generation | **Abilities** label + capsules; generation as *GEN I* (italic grey) under name/id |
+
+**Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))` and a `ResizeObserver` computes `pageSize` from the visible grid area so each page fills the viewport with as many cards as fit (6–100).
+
+**Filters:** Types and generations load once from `/api/filters/*`. Abilities are paginated on the API (~367 total, max 100 per page) but the frontend **fetches all pages** on load and on search so the dropdown is never limited to A–C only.
+
+**Why `spriteUrl` not official artwork:** Sprites are already on every index entry — no extra PokeAPI detail call per card. Faster first paint and simpler backend; artwork can be added later via detail hydration if needed.
+
+**Why show ability + generation on cards:** Each Pokémon’s own attributes — not the active search filters — so users see full context at a glance without applying filters first.
+
+**Card hydration:** `GetPokemonCardDetailsAsync` fetches `pokemon/{id}` for types + abilities and resolves generation via a cached id→generation map built from all generation species lists.
+
+---
+
 ## Configuration
 
 `src/Kota.Pokedex.Api/appsettings.json`:
@@ -472,7 +510,7 @@ CORS is configured for Angular's default port (`4200`).
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
 - Feature #5 (Favorites / Collection) on top of this search infrastructure
-- Angular frontend with paginated grid and filter dropdowns
+- Official artwork hydration (`ArtworkUrl`) as optional upgrade over sprites
 - Precomputed filter intersection indexes for hot combinations (type + generation)
 
 ---

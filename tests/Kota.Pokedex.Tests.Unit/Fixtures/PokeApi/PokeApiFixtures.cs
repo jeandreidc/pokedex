@@ -89,13 +89,35 @@ public static class PokeApiFixtures {
             .ToList()
     };
 
-    public static PokeApiPokemonDetail PokemonDetail(int id, params string[] types) => new() {
-        Id = id,
-        Name = PokemonName(id),
-        Types = types.Select(t => new PokeApiPokemonTypeSlot {
-            Type = new PokeApiNamedResource { Name = t, Url = $"{BaseUrl}type/{t}/" }
-        }).ToList()
-    };
+    public static PokeApiPokemonDetail PokemonDetail(int id, params string[] types) {
+        var abilityName = id switch {
+            >= 1 and <= 3 => "overgrow",
+            >= 4 and <= 6 => "blaze",
+            >= 7 and <= 9 => "torrent",
+            25 => "static",
+            _ => "keen-eye"
+        };
+
+        return new PokeApiPokemonDetail {
+            Id = id,
+            Name = PokemonName(id),
+            Types = types.Select((t, index) => new PokeApiPokemonTypeSlot {
+                Slot = index + 1,
+                Type = new PokeApiNamedResource { Name = t, Url = $"{BaseUrl}type/{t}/" }
+            }).ToList(),
+            Abilities =
+            [
+                new PokeApiPokemonAbilitySlot {
+                    Slot = 1,
+                    IsHidden = false,
+                    Ability = new PokeApiNamedResource {
+                        Name = abilityName,
+                        Url = $"{BaseUrl}ability/{abilityName}/"
+                    }
+                }
+            ]
+        };
+    }
 
     public static string PokemonName(int id) => id switch {
         1 => "bulbasaur",

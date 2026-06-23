@@ -45,11 +45,19 @@ public class PokeApiGenerationDetail {
 public class PokeApiPokemonDetail {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public List<PokeApiPokemonAbilitySlot> Abilities { get; set; } = [];
     public List<PokeApiPokemonTypeSlot> Types { get; set; } = [];
     public PokeApiPokemonSprites Sprites { get; set; } = new();
 }
 
+public class PokeApiPokemonAbilitySlot {
+    public bool IsHidden { get; set; }
+    public int Slot { get; set; }
+    public PokeApiNamedResource Ability { get; set; } = new();
+}
+
 public class PokeApiPokemonTypeSlot {
+    public int Slot { get; set; }
     public PokeApiNamedResource Type { get; set; } = new();
 }
 

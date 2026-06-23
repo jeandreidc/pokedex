@@ -47,8 +47,12 @@ public class GetPokemonByIdQueryHandlerTests {
             .ReturnsAsync(new List<PokemonIndexEntry>());
         mock.Setup(s => s.GetEntryAsync(25, It.IsAny<CancellationToken>()))
             .ReturnsAsync(PokemonIndexFixtures.CreateEntry(25));
-        mock.Setup(s => s.GetTypesForPokemonAsync(25, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "electric" });
+        mock.Setup(s => s.GetPokemonCardDetailsAsync(25, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PokemonCardDetails {
+                Types = ["electric"],
+                Abilities = ["Static"],
+                Generation = "I"
+            });
 
         var sut = new GetPokemonByIdQueryHandler(mock.Object);
         var result = await sut.Handle(new GetPokemonByIdQuery("25"), CancellationToken.None);

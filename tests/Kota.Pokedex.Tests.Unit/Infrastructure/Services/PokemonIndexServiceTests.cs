@@ -96,16 +96,18 @@ public class PokemonIndexServiceTests {
     }
 
     [Fact]
-    public async Task GetTypesForPokemonAsync_CachesTypes() {
-        var first = await _sut.GetTypesForPokemonAsync(25);
+    public async Task GetPokemonCardDetailsAsync_CachesTypesAbilitiesAndGeneration() {
+        var first = await _sut.GetPokemonCardDetailsAsync(25);
         _pokeApi.Invocations.Clear();
 
-        var second = await _sut.GetTypesForPokemonAsync(25);
+        var second = await _sut.GetPokemonCardDetailsAsync(25);
 
-        first.Should().Contain("electric");
+        first.Types.Should().Contain("electric");
+        first.Abilities.Should().Contain("Static");
+        first.Generation.Should().Be("I");
         second.Should().BeEquivalentTo(first);
         _pokeApi.Verify(c => c.GetPokemonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _distributedCache.Store.Should().ContainKey(CacheKeys.PokemonDetail(25));
+        _distributedCache.Store.Should().ContainKey(CacheKeys.PokemonCard(25));
     }
 
     [Fact]
@@ -153,7 +155,11 @@ public class PokemonIndexServiceTests {
         _pokeApi.Setup(c => c.GetGenerationAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PokeApiFixtures.GenerationOneDetail());
 
+        _pokeApi.Setup(c => c.GetGenerationListAsync(100, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(PokeApiFixtures.GenerationList());
+
         _pokeApi.Setup(c => c.GetPokemonAsync("25", It.IsAny<CancellationToken>()))
             .ReturnsAsync(PokeApiFixtures.PokemonDetail(25, "electric"));
     }
 }
+

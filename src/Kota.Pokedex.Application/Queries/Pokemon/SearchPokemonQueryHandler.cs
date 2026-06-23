@@ -58,7 +58,7 @@ public class SearchPokemonQueryHandler : IRequestHandler<SearchPokemonQuery, Pag
             .Take(pageSize)
             .ToList();
 
-        await HydrateTypesAsync(pageItems, request.Type, cancellationToken);
+        await HydrateCardDetailsAsync(pageItems, cancellationToken);
 
         return new PagedResult<PokemonSummaryDto> {
             Items = pageItems,
@@ -68,19 +68,17 @@ public class SearchPokemonQueryHandler : IRequestHandler<SearchPokemonQuery, Pag
         };
     }
 
-    private async Task HydrateTypesAsync(
+    private async Task HydrateCardDetailsAsync(
         List<PokemonSummaryDto> items,
-        string? typeFilter,
         CancellationToken cancellationToken) {
-        foreach (var item in items) {
-            if (!string.IsNullOrWhiteSpace(typeFilter)) {
-                item.Types = [typeFilter.ToLowerInvariant()];
-                continue;
-            }
+        var hydrateTasks = items.Select(async item => {
+            var details = await _indexService.GetPokemonCardDetailsAsync(item.Id, cancellationToken);
+            item.Types = details.Types.ToList();
+            item.Abilities = details.Abilities.ToList();
+            item.Generation = details.Generation;
+        });
 
-            var types = await _indexService.GetTypesForPokemonAsync(item.Id, cancellationToken);
-            item.Types = types.ToList();
-        }
+        await Task.WhenAll(hydrateTasks);
     }
 
     private static HashSet<int> Intersect(HashSet<int>? current, IReadOnlySet<int> next) {

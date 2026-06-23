@@ -26,11 +26,17 @@ public static class PokemonIndexServiceMock {
         mock.Setup(s => s.GetEntryAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => PokemonIndexFixtures.CreateEntry(id));
 
-        mock.Setup(s => s.GetTypesForPokemonAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int id, CancellationToken _) => TypesFor(id));
+        mock.Setup(s => s.GetPokemonCardDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => CardDetailsFor(id));
 
         return mock;
     }
+
+    private static PokemonCardDetails CardDetailsFor(int id) => new() {
+        Types = TypesFor(id).ToList(),
+        Abilities = [AbilityFor(id)],
+        Generation = id <= 151 ? "I" : "II"
+    };
 
     private static IReadOnlyList<string> TypesFor(int id) => id switch {
         >= 4 and <= 6 => ["fire"],
@@ -38,6 +44,14 @@ public static class PokemonIndexServiceMock {
         >= 1 and <= 3 => ["grass", "poison"],
         25 => ["electric"],
         _ => ["normal"]
+    };
+
+    private static string AbilityFor(int id) => id switch {
+        >= 1 and <= 3 => "Overgrow",
+        >= 4 and <= 6 => "Blaze",
+        >= 7 and <= 9 => "Torrent",
+        25 => "Static",
+        _ => "Keen Eye"
     };
 }
 

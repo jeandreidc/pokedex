@@ -1,0 +1,31 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #fef9f3 100%);
+  color: #1a1f2e;
+}
+
+app-root {
+  display: block;
+  height: 100%;
+  padding: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  app-root {
+    padding: 1.25rem 1.5rem;
+  }
+}
