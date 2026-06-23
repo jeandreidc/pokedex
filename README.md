@@ -22,6 +22,31 @@ A full-stack Pokedex application built for a take-home exercise. This repository
 
 ---
 
+## Design Philosophy & Personal Choices
+
+The features, UI, and infrastructure choices below were picked to make this sample **more usable**, **more “Pokédex”**, and closer to something I’d actually want to demo — not just a text-only API exercise.
+
+### Product & UX
+
+- **Usability first** — filters, sprites on cards, and a collection sidebar so it feels like you are building a personal Pokédex, not scrolling a plain list.
+- **Visual, familiar workflow** — the browse → pick → review flow mimics **online shopping** (e.g. Amazon): search the catalog, add Pokémon with heart / caught actions on the card, then open the **slide-out collection** to see what you gathered.
+- **Pagination vs infinite scroll** — pagination could be polished further (e.g. infinite scroll). For this scope, **explicit pages are enough**: predictable API load, clear “page X of Y”, and simpler to test. With more time, infinite scroll would be a nice UX upgrade.
+
+### Tech stack
+
+- **C# / .NET + Angular** — chosen because these are where I am **most familiar**, which let me focus on product and architecture instead of fighting the stack.
+- **Observability (traces, structured logs, metrics)** — added as nice-to-haves, mostly **force of habit** from day-to-day work, and to confirm I could wire **OpenTelemetry → Aspire Dashboard** end-to-end in this repo (including custom counters for favorites, caught, register, and login).
+- **Skaffold** — one command (`skaffold dev`) runs **API, web, Redis, and Aspire Dashboard** together in Kubernetes, so reviewers and I don’t have to start each piece manually during demos.
+
+### Backend architecture
+
+- **RESTful API (not GraphQL)** — I settled on REST because it is what I am **most familiar with**; it has been a long time since I used GraphQL in production. GraphQL has real advantages (e.g. **flattening nested data** in one request), but for this project I tried to get similar benefits on the REST side: **normalized DTOs** (`PokemonSummary` with types, abilities, generation on one card payload), **combinable filter query params**, and **CQRS handlers** that assemble the right shape per endpoint without over-fetching on the frontend.
+- **Clean Architecture + CQRS (MediatR)** — structured the codebase so reads (queries) and writes (commands) stay separated, controllers stay thin, and infrastructure (PokeAPI, cache, SQLite) can be swapped without touching handlers.
+- **Event sourcing** — considered it, but for a take-home Pokédex with simple favorites/caught state, **traditional CRUD + EF Core** is enough; event sourcing would add complexity without a clear payoff here.
+- **Public vs secured API** — I could still polish a **harder split** between public browse endpoints (`/api/pokemon`, `/api/filters`) and secured collection/auth (`/api/collection`, `/api/auth`) — e.g. separate policy modules, API versioning, or gateway routes. **Time ran out**; for this project, **JWT on collection + `[Authorize]`** works and demonstrates the security model, so I settled here.
+
+---
+
 ## How to Run
 
 ### Prerequisites
@@ -565,6 +590,7 @@ For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: si
 
 - **SQL Server (or PostgreSQL) instead of SQLite** — prerequisite for **multiple API pods**; also better ops tooling and concurrent collection writes at scale. For this take-home (single replica, local Skaffold), SQLite remains sufficient.
 - Feature **#1 — team comparison** once a clear comparison model exists (e.g. type coverage, stat totals, role tags)
+- **Clearer public vs secured API boundary** — e.g. dedicated auth policies, route groups, or gateway split; current JWT + `[Authorize]` on collection is sufficient for the demo
 - Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
