@@ -19,13 +19,46 @@ A full-stack Pokedex application built for a take-home exercise. This repository
 
 ### Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Docker](https://www.docker.com/) (for Redis via Aspire or Skaffold)
-- Optional: [Skaffold](https://skaffold.dev/) + Kubernetes (Docker Desktop, minikube, etc.)
+- [Docker](https://www.docker.com/) with Kubernetes enabled (e.g. Docker Desktop)
+- [Skaffold](https://skaffold.dev/)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) — for running components individually (see below)
+- [Node.js](https://nodejs.org/) — for local frontend dev only
 
-### Option 1 — Aspire (recommended for local dev + dashboard)
+### Skaffold (recommended — full stack)
 
-Runs the API, Redis, and opens the **Aspire Dashboard** for traces and metrics.
+Builds and deploys **API**, **Angular web**, **Redis**, and **Aspire Dashboard** to a local Kubernetes cluster from a single unified Dockerfile (`infra/docker/Dockerfile`). This is the primary way to run the app — Redis and all supporting services are provisioned automatically.
+
+```bash
+cd infra
+skaffold dev
+```
+
+Skaffold builds both container images (`api` and `web` targets) with BuildKit, applies the manifests in `infra/kubernetes/`, and sets up port forwards automatically.
+
+Open **http://localhost:4200** — the web container serves the Angular app and proxies `/api/` to the API service inside the cluster.
+
+Port forwards:
+
+| Service           | Local Port | Notes                                      |
+|-------------------|------------|--------------------------------------------|
+| Web (nginx)       | 4200       | Angular UI; `/api` proxied to API service  |
+| API               | 8080       | Direct API access (optional)               |
+| Redis             | 6379       | Shared cache (`Cache:Provider = Redis`)    |
+| Aspire Dashboard  | 18888      | Traces, metrics, logs                      |
+
+**Manual Docker build** (without Skaffold), from the repo root:
+
+```bash
+docker buildx bake -f infra/docker/docker-bake.hcl
+```
+
+This produces `kota-pokedex-api:latest` and `kota-pokedex-web:latest` in one command.
+
+### Run individually
+
+Use these when you want hot reload or to run a single component without the full K8s stack. **Note:** API-only modes use in-memory cache unless you run Redis separately (Aspire AppHost does this for you).
+
+#### Aspire AppHost (API + Redis + dashboard, no K8s)
 
 ```bash
 dotnet run --project src/Kota.Pokedex.AppHost
@@ -35,15 +68,15 @@ dotnet run --project src/Kota.Pokedex.AppHost
 - **Aspire Dashboard**: `https://localhost:18888` (traces, metrics, logs)
 - **Redis**: provisioned automatically; cache provider set to `Redis`
 
-### Option 2 — API only (in-memory cache)
+#### API only (in-memory cache)
 
 ```bash
 dotnet run --project src/Kota.Pokedex.Api
 ```
 
-Uses in-memory cache (`Cache:Provider = Memory` in `appsettings.json`). Good for quick testing without Docker.
+Uses in-memory cache (`Cache:Provider = Memory` in `appsettings.json`). Good for quick API testing without Docker.
 
-### Option 4 — Angular frontend (with API)
+#### Angular frontend (local dev with API)
 
 Terminal 1 — API:
 
@@ -59,23 +92,6 @@ npm start
 ```
 
 Open **http://localhost:4200** — search/filter UI with Pokémon sprite cards.
-
-### Option 3 — Skaffold (Kubernetes)
-
-Deploys API, Redis, and Aspire Dashboard to a local cluster.
-
-```bash
-cd infra
-skaffold dev
-```
-
-Port forwards:
-
-| Service           | Local Port |
-|-------------------|------------|
-| API               | 8080       |
-| Redis             | 6379       |
-| Aspire Dashboard  | 18888      |
 
 ---
 
@@ -395,15 +411,15 @@ Swashbuckle serves interactive API docs at the root URL (`/`). The OpenAPI spec 
 
 | Mode | Command | Use case |
 |------|---------|----------|
+| **Skaffold** (primary) | `cd infra && skaffold dev` | Full stack on K8s — API + web + Redis + Dashboard |
+| **Aspire AppHost** | `dotnet run --project src/Kota.Pokedex.AppHost` | Local dev with Redis + Aspire Dashboard, no container build |
 | **API only** | `dotnet run --project src/Kota.Pokedex.Api` | Fastest — in-memory cache, no Docker |
-| **Aspire AppHost** | `dotnet run --project src/Kota.Pokedex.AppHost` | Local dev with Redis + Aspire Dashboard |
-| **Skaffold** | `cd infra && skaffold dev` | Production-like K8s deploy with Redis + Dashboard |
 
 - **`Kota.Pokedex.Api`** — the actual application deployed to production
 - **`Kota.Pokedex.AppHost`** — local dev orchestrator only; starts Api + Redis + Dashboard. Not deployed to production.
-- **`infra/`** — Skaffold deploys Api + Redis + Aspire Dashboard to Kubernetes
+- **`infra/`** — Skaffold deploys API, web, Redis, and Aspire Dashboard to Kubernetes
 
-**Why both AppHost and Skaffold?** AppHost gives fast inner-loop dev with hot reload and no Docker build. Skaffold validates the full containerized deployment path.
+**Why Skaffold first?** It mirrors production — containers, Redis, and the full stack in one command. AppHost and API-only modes are for faster inner-loop dev when you don't need the K8s path.
 
 ---
 
