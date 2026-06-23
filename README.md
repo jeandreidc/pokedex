@@ -19,7 +19,7 @@ A full-stack Pokedex application built for a take-home exercise. This repository
 ### #5 — Favorites / Collection Tracker
 
 - Per-user favorites and caught status (JWT auth, SQLite persistence)
-- Collection sidebar (favorites, caught, generation stats)
+- Collection sidebar (favorites, caught, **Status** with overall progress bar + generation rings)
 - Optimistic UI on Pokémon cards (heart + pokeball)
 - Secured CRUD API for collection entries
 
@@ -39,6 +39,7 @@ The features, UI, and infrastructure choices below were picked to make this samp
 
 - **Usability first** — filters, sprites on cards, and a collection sidebar so it feels like you are building a personal Pokédex, not scrolling a plain list.
 - **Visual, familiar workflow** — the browse → pick → review flow mimics **online shopping** (e.g. Amazon): search the catalog, add Pokémon with heart / caught actions on the card, then open the **slide-out collection** to see what you gathered.
+- **Status tab — gamified progress** — even though collection is **basic CRUD** under the hood, the **Status** view is designed to feel more like a game: an **overall “All Pokémon” progress bar**, plus **per-generation rings** with caught counts and color-coded completion %. It gives visual feedback that you are “filling the Pokédex,” not just updating rows in a database.
 - **Pagination vs infinite scroll** — pagination could be polished further (e.g. infinite scroll). For this scope, **explicit pages are enough**: predictable API load, clear “page X of Y”, and simpler to test. With more time, infinite scroll would be a nice UX upgrade.
 
 ### Tech stack
