@@ -1,4 +1,6 @@
 using Kota.Pokedex.Application.DTOs;
+using Kota.Pokedex.Application.Interfaces;
+using Kota.Pokedex.Application.Notifications;
 using Kota.Pokedex.Core.Entities;
 using Kota.Pokedex.Core.Interfaces;
 using MediatR;
@@ -9,11 +11,16 @@ namespace Kota.Pokedex.Application.Commands.Auth;
 public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, AuthResponseDto> {
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPublisher _publisher;
     private readonly PasswordHasher<User> _passwordHasher = new();
 
-    public RegisterUserCommandHandler(IUserRepository userRepository, IJwtTokenService jwtTokenService) {
+    public RegisterUserCommandHandler(
+        IUserRepository userRepository,
+        IJwtTokenService jwtTokenService,
+        IPublisher publisher) {
         _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
+        _publisher = publisher;
     }
 
     public async Task<AuthResponseDto> Handle(RegisterUserCommand request, CancellationToken cancellationToken) {
@@ -32,6 +39,8 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
+        await _publisher.Publish(new UserRegisteredNotification(user.Username), cancellationToken);
+
         var token = _jwtTokenService.GenerateToken(user);
         return new AuthResponseDto(token.Token, user.Username, token.ExpiresAtUtc);
     }
@@ -40,11 +49,16 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
 public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthResponseDto> {
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPublisher _publisher;
     private readonly PasswordHasher<User> _passwordHasher = new();
 
-    public LoginUserCommandHandler(IUserRepository userRepository, IJwtTokenService jwtTokenService) {
+    public LoginUserCommandHandler(
+        IUserRepository userRepository,
+        IJwtTokenService jwtTokenService,
+        IPublisher publisher) {
         _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
+        _publisher = publisher;
     }
 
     public async Task<AuthResponseDto> Handle(LoginUserCommand request, CancellationToken cancellationToken) {
@@ -57,6 +71,8 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthRes
         if (result == PasswordVerificationResult.Failed) {
             throw new UnauthorizedAccessException("Invalid username or password.");
         }
+
+        await _publisher.Publish(new UserLoggedInNotification(user.Username), cancellationToken);
 
         var token = _jwtTokenService.GenerateToken(user);
         return new AuthResponseDto(token.Token, user.Username, token.ExpiresAtUtc);

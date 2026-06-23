@@ -51,7 +51,8 @@ public static class Extensions {
             .WithMetrics(metrics => {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    .AddMeter("Kota.Pokedex");
             })
             .WithTracing(tracing => {
                 tracing.AddAspNetCoreInstrumentation()

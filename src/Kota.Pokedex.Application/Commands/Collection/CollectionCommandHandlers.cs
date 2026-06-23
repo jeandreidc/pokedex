@@ -1,5 +1,6 @@
 using Kota.Pokedex.Application.DTOs;
 using Kota.Pokedex.Application.Interfaces;
+using Kota.Pokedex.Application.Notifications;
 using Kota.Pokedex.Core.Entities;
 using Kota.Pokedex.Core.Interfaces;
 using MediatR;
@@ -10,14 +11,17 @@ public class UpdateCollectionEntryCommandHandler : IRequestHandler<UpdateCollect
     private readonly ICollectionRepository _collectionRepository;
     private readonly IPokemonIndexService _indexService;
     private readonly ICurrentUserService _currentUser;
+    private readonly IPublisher _publisher;
 
     public UpdateCollectionEntryCommandHandler(
         ICollectionRepository collectionRepository,
         IPokemonIndexService indexService,
-        ICurrentUserService currentUser) {
+        ICurrentUserService currentUser,
+        IPublisher publisher) {
         _collectionRepository = collectionRepository;
         _indexService = indexService;
         _currentUser = currentUser;
+        _publisher = publisher;
     }
 
     public async Task<CollectionEntryDto> Handle(UpdateCollectionEntryCommand request, CancellationToken cancellationToken) {
@@ -29,8 +33,10 @@ public class UpdateCollectionEntryCommandHandler : IRequestHandler<UpdateCollect
         }
 
         var existing = await _collectionRepository.GetEntryAsync(userId, request.PokemonId, cancellationToken);
-        var isCaught = request.IsCaught ?? existing?.IsCaught ?? false;
-        var isFavorite = request.IsFavorite ?? existing?.IsFavorite ?? false;
+        var wasFavorite = existing?.IsFavorite ?? false;
+        var wasCaught = existing?.IsCaught ?? false;
+        var isCaught = request.IsCaught ?? wasCaught;
+        var isFavorite = request.IsFavorite ?? wasFavorite;
 
         if (!isCaught && !isFavorite) {
             await _collectionRepository.RemoveAsync(userId, request.PokemonId, cancellationToken);
@@ -49,7 +55,46 @@ public class UpdateCollectionEntryCommandHandler : IRequestHandler<UpdateCollect
         await _collectionRepository.UpsertAsync(entry, cancellationToken);
         await _collectionRepository.SaveChangesAsync(cancellationToken);
 
+        await PublishCollectionMetricsIfNeeded(
+            pokemon.Id,
+            pokemon.Name,
+            wasFavorite,
+            wasCaught,
+            isFavorite,
+            isCaught,
+            cancellationToken);
+
         return new CollectionEntryDto(pokemon.Id, pokemon.Name, pokemon.SpriteUrl, isCaught, isFavorite);
+    }
+
+    private async Task PublishCollectionMetricsIfNeeded(
+        int pokemonId,
+        string pokemonName,
+        bool wasFavorite,
+        bool wasCaught,
+        bool isFavorite,
+        bool isCaught,
+        CancellationToken cancellationToken) {
+        var markedFavorite = isFavorite && !wasFavorite;
+        var markedCaught = isCaught && !wasCaught;
+        if (!markedFavorite && !markedCaught) {
+            return;
+        }
+
+        var cardDetails = await _indexService.GetPokemonCardDetailsAsync(pokemonId, cancellationToken);
+        var generation = cardDetails.Generation ?? "unknown";
+
+        if (markedFavorite) {
+            await _publisher.Publish(
+                new PokemonMarkedFavoriteNotification(pokemonId, pokemonName, generation),
+                cancellationToken);
+        }
+
+        if (markedCaught) {
+            await _publisher.Publish(
+                new PokemonMarkedCaughtNotification(pokemonId, pokemonName, generation),
+                cancellationToken);
+        }
     }
 
     private Guid RequireUserId() =>

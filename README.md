@@ -1,17 +1,24 @@
 # Kota Pokedex
 
-A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data, plus an **Angular** frontend with searchable Pokémon cards.
+A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** and **Feature #5: Favorites / Collection Tracker** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data, persists per-user collections in SQLite, and an **Angular** frontend where you browse, filter, and “shop” for Pokémon to add to your collection.
 
 ---
 
-## Feature Implemented
+## Features Implemented
 
-**Search & Filter with Pagination**
+### #2 — Search & Filter with Pagination
 
 - Combinable filters: text search, type, ability, and generation
 - Server-side filter intersection and pagination
 - Filter metadata endpoints for Angular dropdowns
 - All PokeAPI access goes through the backend (no direct browser calls)
+
+### #5 — Favorites / Collection Tracker
+
+- Per-user favorites and caught status (JWT auth, SQLite persistence)
+- Collection sidebar (favorites, caught, generation stats)
+- Optimistic UI on Pokémon cards (heart + pokeball)
+- Secured CRUD API for collection entries
 
 ---
 
@@ -199,16 +206,20 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full guidelines.
 
 ## Key Decisions & Justifications
 
-### 0. Feature choice: Search & Filter with Pagination (#2)
+### 0. Feature choices: #2 + #5 (and why not #1)
 
-We chose Feature #2 from the take-home exercise because it best demonstrates backend skills relevant to the role:
+The take-home exercise listed several optional features. I implemented **#2** first, then **#5**, because they complement each other in the product UX:
 
-- **CQRS read path** — queries, handlers, DTOs, pagination
-- **External API integration** — PokeAPI proxy with caching and rate limiting
-- **Data transformation** — normalizing PokeAPI responses into clean frontend contracts
-- **Product thinking** — combinable filters, dropdown UX, search
+| Feature | Role in the app |
+|---------|-----------------|
+| **#2 — Search & Filter** | Find Pokémon quickly (browse / discovery) |
+| **#5 — Favorites / Collection** | Save what you care about (persisted per user) |
 
-Feature #5 (Favorites) was considered as a complementary second feature but deferred to stay within the 2–3 hour scope. The current architecture supports adding it later via CQRS commands without restructuring.
+**Why they work better together:** #2 alone is read-only browsing; #5 alone has little value without a way to discover Pokémon. Combined, the flow feels like **shopping on Amazon** — you search and filter the catalog, then add items to your “cart” (favorites / caught) with one tap on the card. The collection sidebar slides in from the right so you can review what you picked without leaving the browse experience.
+
+**Feature #1 (team comparison):** I would have liked to include this — it’s a strong demo of analytics and domain modeling — but I did not have time to design a fair way to compare teams (stats, typings, coverage, etc.) in a useful UI. **#5 was a better fit for the remaining scope** because it showcases full **CRUD**, auth, persistence, and CQRS commands alongside the existing read-heavy #2 stack.
+
+**#5 over #1 for this pass:** secured write endpoints, EF Core + migrations, JWT, and collection stats by generation are concrete backend skills to demonstrate; team comparison remains a good follow-up once the comparison model is defined.
 
 ---
 
@@ -520,12 +531,43 @@ CORS is configured for Angular's default port (`4200`).
 
 ---
 
-## What I'd Do With More Time
+## Scalability
 
-- Integration tests with `WireMock` for PokeAPI responses
+### Is the current solution scalable?
+
+**Partially.** The app is designed so the **read-heavy browse path** (#2) can scale horizontally today; the **write path** (#5 collection + auth) is intentionally pinned to a **single API replica** because of SQLite.
+
+| Component | Scales today? | Notes |
+|-----------|---------------|--------|
+| **Angular web (nginx)** | Yes | Static assets; scale `kota-pokedex-web` replicas independently |
+| **API — browse / filters / PokeAPI proxy** | Yes* | Stateless handlers; **Redis** (`Cache:Provider = Redis` in K8s) shares PokeAPI index and filter metadata across pods |
+| **API — JWT auth** | Yes | No server-side session; any pod can validate tokens |
+| **API — collection CRUD** | No (multi-pod) | **SQLite** on a **ReadWriteOnce** PVC — one writer, one mount; `api-deployment` runs **1 replica** |
+| **Redis** | Single instance | Enough for dev/demo; production would use Redis Sentinel/Cluster for HA |
+
+\*Only after replacing SQLite for collection data (see below). With the current SQLite setup, **do not** scale API pods beyond 1.
+
+### What to do when scaling out (more pods)
+
+Typical production path:
+
+1. **Replace SQLite with a shared database** (SQL Server, PostgreSQL, etc.) — required before running multiple API replicas. All pods then share one collection/auth store with proper concurrent writes.
+2. **Increase API `replicas`** in `infra/kubernetes/api-deployment.yaml` (and add a **HorizontalPodAutoscaler** on CPU/memory or request rate).
+3. **Keep Redis** as the shared cache for PokeAPI responses and warmed indexes so new pods do not each cold-call PokeAPI.
+4. **Scale the web tier** separately — nginx replicas behind a Service/Ingress; `/api` still proxies to the API Service.
+5. **Optional hardening** — distributed rate limiting (Redis-backed) if per-pod `RateLimiter` partitions are too coarse at high replica counts; Redis HA; managed DB with backups.
+
+For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: simple local Skaffold setup, full CRUD demo, and a clear upgrade path when traffic or availability requirements grow.
+
+---
+
+## Future Improvements
+
+- **SQL Server (or PostgreSQL) instead of SQLite** — prerequisite for **multiple API pods**; also better ops tooling and concurrent collection writes at scale. For this take-home (single replica, local Skaffold), SQLite remains sufficient.
+- Feature **#1 — team comparison** once a clear comparison model exists (e.g. type coverage, stat totals, role tags)
+- Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
-- Feature #5 (Favorites / Collection) on top of this search infrastructure
 - Official artwork hydration (`ArtworkUrl`) as optional upgrade over sprites
 - Precomputed filter intersection indexes for hot combinations (type + generation)
 

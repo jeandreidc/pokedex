@@ -1,3 +1,4 @@
+using Kota.Pokedex.Application.Interfaces;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Infrastructure;
 using Kota.Pokedex.Infrastructure.Caching;
@@ -39,6 +40,7 @@ public class DependencyInjectionTests {
 
         services.Should().Contain(d => d.ServiceType == typeof(IPokemonIndexService));
         services.Should().Contain(d => d.ServiceType == typeof(IFilterMetadataService));
+        services.Should().Contain(d => d.ServiceType == typeof(IPokedexMetricsService));
         services.Should().Contain(d => d.ImplementationType == typeof(PokemonPrefetchHostedService));
     }
 
