@@ -1,17 +1,14 @@
-## .NET
-bin/
-obj/
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
-*.userprefs
+## A streamlined .gitignore for modern .NET projects
+## https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
-## Build results
+# Build results
 [Dd]ebug/
+[Dd]ebugPublic/
 [Rr]elease/
+[Rr]eleases/
 x64/
 x86/
+[Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
 bld/
@@ -20,25 +17,57 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-## NuGet
-*.nupkg
-*.snupkg
-**/[Pp]ackages/*
-!**/[Pp]ackages/build/
+# .NET Core
 project.lock.json
 project.fragment.lock.json
 artifacts/
 
-## IDE
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# IDE
 .idea/
 .vs/
 *.rsuser
 *.DotSettings.user
 
-## OS
+# OS
 .DS_Store
 Thumbs.db
 
-## User secrets
+# User secrets
 appsettings.*.local.json
 secrets.json
+
+# dotenv environment variables file
+.env
+
+# Others
+~$*
+*~
+CodeCoverage/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
