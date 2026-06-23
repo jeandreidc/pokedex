@@ -531,9 +531,39 @@ CORS is configured for Angular's default port (`4200`).
 
 ---
 
+## Scalability
+
+### Is the current solution scalable?
+
+**Partially.** The app is designed so the **read-heavy browse path** (#2) can scale horizontally today; the **write path** (#5 collection + auth) is intentionally pinned to a **single API replica** because of SQLite.
+
+| Component | Scales today? | Notes |
+|-----------|---------------|--------|
+| **Angular web (nginx)** | Yes | Static assets; scale `kota-pokedex-web` replicas independently |
+| **API — browse / filters / PokeAPI proxy** | Yes* | Stateless handlers; **Redis** (`Cache:Provider = Redis` in K8s) shares PokeAPI index and filter metadata across pods |
+| **API — JWT auth** | Yes | No server-side session; any pod can validate tokens |
+| **API — collection CRUD** | No (multi-pod) | **SQLite** on a **ReadWriteOnce** PVC — one writer, one mount; `api-deployment` runs **1 replica** |
+| **Redis** | Single instance | Enough for dev/demo; production would use Redis Sentinel/Cluster for HA |
+
+\*Only after replacing SQLite for collection data (see below). With the current SQLite setup, **do not** scale API pods beyond 1.
+
+### What to do when scaling out (more pods)
+
+Typical production path:
+
+1. **Replace SQLite with a shared database** (SQL Server, PostgreSQL, etc.) — required before running multiple API replicas. All pods then share one collection/auth store with proper concurrent writes.
+2. **Increase API `replicas`** in `infra/kubernetes/api-deployment.yaml` (and add a **HorizontalPodAutoscaler** on CPU/memory or request rate).
+3. **Keep Redis** as the shared cache for PokeAPI responses and warmed indexes so new pods do not each cold-call PokeAPI.
+4. **Scale the web tier** separately — nginx replicas behind a Service/Ingress; `/api` still proxies to the API Service.
+5. **Optional hardening** — distributed rate limiting (Redis-backed) if per-pod `RateLimiter` partitions are too coarse at high replica counts; Redis HA; managed DB with backups.
+
+For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: simple local Skaffold setup, full CRUD demo, and a clear upgrade path when traffic or availability requirements grow.
+
+---
+
 ## Future Improvements
 
-- **SQL Server instead of SQLite** — for a production multi-instance deployment, SQL Server (or another shared database) would be the better default for concurrent writes and ops tooling. For this take-home scope (single API pod, local Skaffold, modest data), **SQLite on a PVC is sufficient** and keeps setup simple.
+- **SQL Server (or PostgreSQL) instead of SQLite** — prerequisite for **multiple API pods**; also better ops tooling and concurrent collection writes at scale. For this take-home (single replica, local Skaffold), SQLite remains sufficient.
 - Feature **#1 — team comparison** once a clear comparison model exists (e.g. type coverage, stat totals, role tags)
 - Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
