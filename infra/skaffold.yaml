@@ -1,0 +1,20 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: kota-pokedex
+build:
+  artifacts:
+    - image: kota-pokedex
+      context: ..
+      docker:
+        dockerfile: infra/docker/Dockerfile
+manifests:
+  rawYaml:
+    - kubernetes/*.yaml
+deploy:
+  kubectl: {}
+portForward:
+  - resourceType: service
+    resourceName: kota-pokedex
+    port: 8080
+    localPort: 8080

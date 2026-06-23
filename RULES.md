@@ -23,7 +23,7 @@ Kota.Pokedex.Core.Entities
 Kota.Pokedex.Core.Interfaces
 Kota.Pokedex.Application.Services
 Kota.Pokedex.Infrastructure.Persistence
-Kota.Pokedex.API.Controllers
+Kota.Pokedex.Api.Controllers
 ```
 
 ### 4. Async/Await Rules

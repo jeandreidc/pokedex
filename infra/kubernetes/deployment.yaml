@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kota-pokedex
+  labels:
+    app: kota-pokedex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kota-pokedex
+  template:
+    metadata:
+      labels:
+        app: kota-pokedex
+    spec:
+      containers:
+        - name: kota-pokedex
+          image: kota-pokedex
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production

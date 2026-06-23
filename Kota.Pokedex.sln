@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kota.Pokedex", "Kota.Pokedex\Kota.Pokedex.csproj", "{98F1E96C-CF66-4026-9FF9-CB99C7C54AF9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kota.Pokedex.Api", "src\Kota.Pokedex.Api\Kota.Pokedex.Api.csproj", "{98F1E96C-CF66-4026-9FF9-CB99C7C54AF9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

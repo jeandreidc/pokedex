@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kota-pokedex
+  labels:
+    app: kota-pokedex
+spec:
+  type: ClusterIP
+  selector:
+    app: kota-pokedex
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP

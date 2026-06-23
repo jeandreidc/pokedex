@@ -3,8 +3,9 @@
 ## Project Structure
 
 ```
-Solution/
-├── src/
+Kota.Pokedex/
+├── src/                             # Application source code
+│   ├── Kota.Pokedex.Api/            # Web API entry point
 │   ├── Kota.Pokedex.Core/           # Domain logic, entities, interfaces
 │   │   ├── Entities/                # Domain models
 │   │   ├── Interfaces/              # Abstractions (IRepository, IReadStore)
@@ -25,25 +26,47 @@ Solution/
 │   │   ├── Mapping/                 # AutoMapper profiles
 │   │   └── Behaviors/               # MediatR pipeline (validation, logging)
 │   │
-│   ├── Kota.Pokedex.Infrastructure/ # EF Core, external APIs, implementations
-│   │   ├── Persistence/             # DbContext, migrations
-│   │   ├── Repositories/            # Write-side repository implementations
-│   │   ├── ReadStores/              # Read-optimized query implementations (optional)
-│   │   ├── ExternalServices/        # Third-party integrations
-│   │   └── Configuration/           # Infrastructure setup
-│   │
-│   └── Kota.Pokedex.API/            # Web API layer
-│       ├── Controllers/             # HTTP endpoints
-│       ├── Middleware/              # Custom middleware
-│       ├── Filters/                 # Action filters
-│       └── Program.cs               # DI and startup
+│   └── Kota.Pokedex.Infrastructure/ # EF Core, external APIs, implementations
+│       ├── Persistence/             # DbContext, migrations
+│       ├── Repositories/            # Write-side repository implementations
+│       ├── ReadStores/              # Read-optimized query implementations (optional)
+│       ├── ExternalServices/        # Third-party integrations
+│       └── Configuration/           # Infrastructure setup
 │
-├── tests/
+├── tests/                           # Test projects
 │   ├── Kota.Pokedex.Tests.Unit/     # Unit tests
 │   ├── Kota.Pokedex.Tests.Integration/ # Integration tests
 │   └── Kota.Pokedex.Tests.E2E/      # End-to-end tests
 │
-└── Solution.sln
+├── infra/                           # Deployment & platform scaffolding
+│   ├── skaffold.yaml                # Skaffold config (build + deploy loop)
+│   ├── docker/
+│   │   └── Dockerfile               # Container image definition
+│   └── kubernetes/
+│       ├── deployment.yaml          # K8s deployment manifest
+│       └── service.yaml             # K8s service manifest
+│
+├── ARCHITECTURE.md
+├── CODING_STANDARDS.md
+├── RULES.md
+└── Kota.Pokedex.sln
+```
+
+### Infra Folder
+
+Ang `infra/` ay para sa **deployment scaffolding** — hiwalay sa `src/Kota.Pokedex.Infrastructure/` (application code layer).
+
+| Path | Purpose |
+|------|---------|
+| `infra/skaffold.yaml` | Skaffold pipeline — build image, deploy sa K8s, port-forward |
+| `infra/docker/Dockerfile` | Multi-stage Docker build para sa API |
+| `infra/kubernetes/` | Kubernetes manifests (Deployment, Service, etc.) |
+
+**Local dev with Skaffold** (from `infra/` directory):
+
+```bash
+cd infra
+skaffold dev
 ```
 
 ## Layered Architecture with CQRS
@@ -252,7 +275,7 @@ public class PokemonRepository : IPokemonRepository {
 - Filters
 
 ```csharp
-// Kota.Pokedex.API/Controllers/PokemonController.cs
+// Kota.Pokedex.Api/Controllers/PokemonController.cs
 [ApiController]
 [Route("api/[controller]")]
 public class PokemonController : ControllerBase {
