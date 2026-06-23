@@ -1,0 +1,30 @@
+<div class="generation-ring">
+  <svg [attr.width]="size" [attr.height]="size" [attr.viewBox]="'0 0 ' + size + ' ' + size">
+    <circle
+      class="generation-ring__track"
+      [attr.cx]="size / 2"
+      [attr.cy]="size / 2"
+      [attr.r]="radius"
+      [attr.stroke-width]="stroke"
+      fill="none"
+    />
+    <circle
+      class="generation-ring__progress"
+      [attr.cx]="size / 2"
+      [attr.cy]="size / 2"
+      [attr.r]="radius"
+      [attr.stroke-width]="stroke"
+      [attr.stroke]="ringColor"
+      [attr.stroke-dasharray]="circumference"
+      [attr.stroke-dashoffset]="dashOffset"
+      fill="none"
+      stroke-linecap="round"
+      [attr.transform]="'rotate(-90 ' + size / 2 + ' ' + size / 2 + ')'"
+    />
+  </svg>
+  <div class="generation-ring__center">
+    <span class="generation-ring__count">{{ caughtCount }}/{{ totalInGeneration }}</span>
+    <span class="generation-ring__pct">{{ caughtPercentage }}%</span>
+  </div>
+  <span class="generation-ring__label">{{ displayName }}</span>
+</div>

@@ -55,6 +55,11 @@ secrets.json
 # dotenv environment variables file
 .env
 
+# SQLite local databases
+*.db
+*.db-shm
+*.db-wal
+
 # Others
 ~$*
 *~

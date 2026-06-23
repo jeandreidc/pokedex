@@ -18,14 +18,17 @@ body {
 
 app-root {
   display: block;
-  height: 100%;
-  padding: 1rem;
+  min-height: 100%;
   max-width: 1400px;
   margin: 0 auto;
 }
 
+.app-main {
+  padding: 1rem;
+}
+
 @media (min-width: 768px) {
-  app-root {
+  .app-main {
     padding: 1.25rem 1.5rem;
   }
 }

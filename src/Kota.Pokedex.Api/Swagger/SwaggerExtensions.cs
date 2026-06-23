@@ -10,11 +10,24 @@ public static class SwaggerExtensions {
                 Title = "Kota Pokedex API",
                 Version = "v1",
                 Description = """
-                    Backend API for the Pokedex take-home exercise (Feature #2: Search & Filter with Pagination).
+                    Backend API for the Pokedex — search/filter Pokemon and manage per-user collections.
 
-                    All endpoints proxy and normalize data from [PokeAPI](https://pokeapi.co/docs/v2).
-                    Filters are combinable — use `search`, `type`, `ability`, and `generation` together on `GET /api/pokemon`.
+                    Public endpoints proxy data from [PokeAPI](https://pokeapi.co/docs/v2).
+                    Collection endpoints require JWT Bearer authentication.
                     """
+            });
+
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
+                Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT"
+            });
+
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
             });
 
             var xmlPath = Path.Combine(AppContext.BaseDirectory, "Kota.Pokedex.Api.xml");

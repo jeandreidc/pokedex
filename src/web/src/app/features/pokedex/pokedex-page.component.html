@@ -1,9 +1,4 @@
 <div class="pokedex">
-  <header class="pokedex__header">
-    <h1>Kota Pokédex</h1>
-    <p>Search and filter Pokémon — cards show sprites and active filters.</p>
-  </header>
-
   <app-filter-toolbar
     [types]="types"
     [generations]="generations"
@@ -33,7 +28,10 @@
   <div #gridHost class="pokedex__grid">
     @if (results?.items?.length) {
       @for (pokemon of results!.items; track pokemon.id) {
-        <app-pokemon-card [pokemon]="pokemon" />
+        <app-pokemon-card
+          [pokemon]="pokemon"
+          [collectionState]="getCollectionState(pokemon.id)"
+        />
       }
     } @else if (!loading && !error) {
       <div class="pokedex__empty">No Pokémon match the current filters.</div>

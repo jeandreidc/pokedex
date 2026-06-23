@@ -1,0 +1,103 @@
+@if (store.sidebarOpen()) {
+  <div class="sidebar-backdrop" (click)="close()" aria-hidden="true"></div>
+}
+
+<aside class="collection-sidebar" [class.collection-sidebar--open]="store.sidebarOpen()" aria-label="My collection">
+  <header class="collection-sidebar__header">
+    <h2>My Collection</h2>
+    <button type="button" class="collection-sidebar__close" (click)="close()" aria-label="Close collection">×</button>
+  </header>
+
+  @if (store.stats(); as stats) {
+    <div class="collection-sidebar__stats">
+      <span>{{ stats.totalCaught }} caught</span>
+      <span>·</span>
+      <span>{{ stats.totalFavorites }} favorites</span>
+      <span>·</span>
+      <span>{{ stats.overallCaughtPercentage }}% overall</span>
+    </div>
+  }
+
+  <div class="collection-sidebar__tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      [class.is-active]="store.activeTab() === 'favorites'"
+      (click)="setTab('favorites')"
+    >
+      Favorites
+      <span class="collection-sidebar__tab-count">{{ store.favorites().length }}</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [class.is-active]="store.activeTab() === 'caught'"
+      (click)="setTab('caught')"
+    >
+      Caught
+      <span class="collection-sidebar__tab-count">{{ store.caught().length }}</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [class.is-active]="store.activeTab() === 'status'"
+      (click)="setTab('status')"
+    >
+      Status
+    </button>
+  </div>
+
+  <div class="collection-sidebar__content">
+    @if (isListTab()) {
+      @if (activeEntries().length) {
+        <div class="collection-sidebar__grid">
+          @for (entry of activeEntries(); track entry.pokemonId) {
+            <app-collection-avatar [entry]="entry" (remove)="remove($event)" />
+          }
+        </div>
+      } @else {
+        <p class="collection-sidebar__empty">
+          @if (store.activeTab() === 'favorites') {
+            No favorites yet — tap ♥ on a Pokémon card.
+          } @else {
+            No caught Pokémon yet — tap the Pokéball on a card.
+          }
+        </p>
+      }
+    } @else {
+      @if (store.stats(); as stats) {
+        <section class="collection-sidebar__overall" aria-label="Overall collection progress">
+          <div class="collection-sidebar__overall-header">
+            <span class="collection-sidebar__overall-title">All Pokémon</span>
+            <span class="collection-sidebar__overall-count">
+              {{ stats.totalCaught }}/{{ stats.totalPokemon }}
+              <span class="collection-sidebar__overall-pct">({{ stats.overallCaughtPercentage }}%)</span>
+            </span>
+          </div>
+          <div class="collection-sidebar__overall-bar" aria-hidden="true">
+            <div
+              class="collection-sidebar__overall-bar-fill"
+              [style.width.%]="stats.overallCaughtPercentage"
+            ></div>
+          </div>
+        </section>
+
+        @if (generationStats().length) {
+          <h3 class="collection-sidebar__section-title">By generation</h3>
+          <div class="collection-sidebar__status-grid">
+            @for (gen of generationStats(); track gen.generation) {
+              <app-generation-ring
+                [displayName]="gen.displayName"
+                [caughtCount]="gen.caughtCount"
+                [totalInGeneration]="gen.totalInGeneration"
+                [caughtPercentage]="gen.caughtPercentage"
+              />
+            }
+          </div>
+        }
+      } @else {
+        <p class="collection-sidebar__empty">Sign in to view your collection status.</p>
+      }
+    }
+  </div>
+</aside>

@@ -2,7 +2,11 @@ using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Options;
 using Kota.Pokedex.Infrastructure.Caching;
 using Kota.Pokedex.Infrastructure.ExternalServices.PokeApi;
+using Kota.Pokedex.Infrastructure.Persistence;
+using Kota.Pokedex.Infrastructure.Repositories;
+using Kota.Pokedex.Infrastructure.Security;
 using Kota.Pokedex.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +16,13 @@ public static class DependencyInjection {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration) {
         services.Configure<CacheOptions>(configuration.GetSection(CacheOptions.SectionName));
         services.Configure<PokeApiOptions>(configuration.GetSection(PokeApiOptions.SectionName));
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseSqlite(configuration.GetConnectionString("PokedexDb")));
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICollectionRepository, CollectionRepository>();
+        services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
         var cacheProvider = configuration.GetSection(CacheOptions.SectionName)["Provider"] ?? "Memory";
 

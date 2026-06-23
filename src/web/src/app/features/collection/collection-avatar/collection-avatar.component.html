@@ -1,0 +1,32 @@
+<div class="collection-avatar-tile" (mouseleave)="onMouseLeave()">
+  <div class="collection-avatar-wrap" [class.collection-avatar-wrap--confirming]="confirmOpen()">
+    <div class="collection-avatar">
+      <div class="collection-avatar__image">
+        <img [src]="entry.spriteUrl" [alt]="formatName(entry.name)" loading="lazy" />
+      </div>
+      @if (!confirmOpen()) {
+        <div class="collection-avatar__hover-overlay">
+          <button
+            type="button"
+            class="collection-avatar__delete"
+            (click)="onDeleteClick($event)"
+            [attr.aria-label]="'Remove ' + formatName(entry.name)"
+          >
+            ×
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (confirmOpen()) {
+      <div class="collection-avatar__confirm-popover" role="dialog" aria-label="Confirm remove">
+        <span class="collection-avatar__confirm-text">Remove?</span>
+        <div class="collection-avatar__confirm-actions">
+          <button type="button" (click)="confirmRemove($event)" aria-label="Confirm remove">✓</button>
+          <button type="button" (click)="cancelRemove($event)" aria-label="Cancel">✕</button>
+        </div>
+      </div>
+    }
+  </div>
+  <span class="collection-avatar-tile__name">{{ formatName(entry.name) }}</span>
+</div>

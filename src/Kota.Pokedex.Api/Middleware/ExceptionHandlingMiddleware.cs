@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FluentValidation;
 using Kota.Pokedex.Core.Exceptions;
 
 namespace Kota.Pokedex.Api.Middleware;
@@ -27,7 +28,10 @@ public class ExceptionHandlingMiddleware {
 
         var (statusCode, message) = exception switch {
             PokeApiException pokeEx => (pokeEx.StatusCode ?? (int)HttpStatusCode.BadGateway, pokeEx.Message),
+            ValidationException validationEx => ((int)HttpStatusCode.BadRequest, string.Join("; ", validationEx.Errors.Select(e => e.ErrorMessage))),
+            UnauthorizedAccessException authEx => ((int)HttpStatusCode.Unauthorized, authEx.Message),
             ArgumentException argEx => ((int)HttpStatusCode.BadRequest, argEx.Message),
+            KeyNotFoundException notFoundEx => ((int)HttpStatusCode.NotFound, notFoundEx.Message),
             _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
         };
 

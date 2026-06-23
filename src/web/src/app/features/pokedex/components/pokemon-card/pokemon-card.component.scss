@@ -14,6 +14,12 @@
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
   }
 
+  &__avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
   &__avatar {
     width: 72px;
     height: 72px;
@@ -23,14 +29,61 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
     overflow: hidden;
-    margin-top: 0.1rem;
 
     img {
       width: 68px;
       height: 68px;
       object-fit: contain;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+  }
+
+  &__action {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 0;
+    transition: transform 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+
+    &:hover {
+      transform: scale(1.06);
+    }
+
+    &--favorite {
+      font-size: 0.95rem;
+      line-height: 1;
+
+      &.is-active {
+        color: #ef4444;
+        border-color: #fca5a5;
+        background: #fef2f2;
+      }
+    }
+
+    &--caught {
+      svg {
+        width: 1rem;
+        height: 1rem;
+      }
+
+      &.is-active {
+        color: #dc2626;
+        border-color: #fca5a5;
+        background: #fef2f2;
+      }
     }
   }
 
