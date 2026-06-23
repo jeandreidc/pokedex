@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kota.Pokedex.Tests.Unit", "tests\Kota.Pokedex.Tests.Unit\Kota.Pokedex.Tests.Unit.csproj", "{827F9F99-CAA3-478F-B0F4-3CCB8EF26218}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kota.Pokedex.Tests.Integration", "tests\Kota.Pokedex.Tests.Integration\Kota.Pokedex.Tests.Integration.csproj", "{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -112,6 +114,18 @@ Global
 		{827F9F99-CAA3-478F-B0F4-3CCB8EF26218}.Release|x64.Build.0 = Release|Any CPU
 		{827F9F99-CAA3-478F-B0F4-3CCB8EF26218}.Release|x86.ActiveCfg = Release|Any CPU
 		{827F9F99-CAA3-478F-B0F4-3CCB8EF26218}.Release|x86.Build.0 = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|x64.Build.0 = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Debug|x86.Build.0 = Debug|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|x64.ActiveCfg = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|x64.Build.0 = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|x86.ActiveCfg = Release|Any CPU
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -123,5 +137,6 @@ Global
 		{4EC0AE51-93DA-444E-904C-2733F21CC3BB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{CF70EC23-7541-4321-9A07-65BD48AADED4} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{827F9F99-CAA3-478F-B0F4-3CCB8EF26218} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{ADDC2692-0EB4-41D3-B963-41D1A58CF0AF} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
