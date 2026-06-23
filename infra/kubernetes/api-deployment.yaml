@@ -26,7 +26,46 @@ spec:
               value: Redis
             - name: ConnectionStrings__redis
               value: redis:6379
+            - name: ConnectionStrings__PokedexDb
+              value: Data Source=/data/pokedex.db
+            - name: Jwt__Issuer
+              value: Kota.Pokedex
+            - name: Jwt__Audience
+              value: Kota.Pokedex.Client
+            - name: Jwt__ExpiryMinutes
+              value: "60"
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: kota-pokedex-api-secrets
+                  key: jwt-secret
+            - name: Cors__AllowedOrigins__0
+              value: http://localhost:4200
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://aspire-dashboard:18889
             - name: OTEL_SERVICE_NAME
               value: kota-pokedex-api
+          volumeMounts:
+            - name: pokedex-data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+      volumes:
+        - name: pokedex-data
+          persistentVolumeClaim:
+            claimName: kota-pokedex-api-data

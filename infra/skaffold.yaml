@@ -20,7 +20,17 @@ build:
         target: web
 manifests:
   rawYaml:
-    - kubernetes/*.yaml
+    # Collection DB + auth must exist before API pods start
+    - kubernetes/api-secret.yaml
+    - kubernetes/api-pvc.yaml
+    - kubernetes/api-deployment.yaml
+    - kubernetes/api-service.yaml
+    - kubernetes/redis-deployment.yaml
+    - kubernetes/redis-service.yaml
+    - kubernetes/web-deployment.yaml
+    - kubernetes/web-service.yaml
+    - kubernetes/aspire-dashboard-deployment.yaml
+    - kubernetes/aspire-dashboard-service.yaml
 deploy:
   kubectl: {}
 portForward:
