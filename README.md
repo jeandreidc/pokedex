@@ -1,17 +1,24 @@
 # Kota Pokedex
 
-A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data, plus an **Angular** frontend with searchable Pokémon cards.
+A full-stack Pokedex application built for a take-home exercise. This repository implements **Feature #2: Search & Filter with Pagination** and **Feature #5: Favorites / Collection Tracker** — a backend API that proxies and normalizes [PokeAPI](https://pokeapi.co/docs/v2) data, persists per-user collections in SQLite, and an **Angular** frontend where you browse, filter, and “shop” for Pokémon to add to your collection.
 
 ---
 
-## Feature Implemented
+## Features Implemented
 
-**Search & Filter with Pagination**
+### #2 — Search & Filter with Pagination
 
 - Combinable filters: text search, type, ability, and generation
 - Server-side filter intersection and pagination
 - Filter metadata endpoints for Angular dropdowns
 - All PokeAPI access goes through the backend (no direct browser calls)
+
+### #5 — Favorites / Collection Tracker
+
+- Per-user favorites and caught status (JWT auth, SQLite persistence)
+- Collection sidebar (favorites, caught, generation stats)
+- Optimistic UI on Pokémon cards (heart + pokeball)
+- Secured CRUD API for collection entries
 
 ---
 
@@ -199,16 +206,20 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full guidelines.
 
 ## Key Decisions & Justifications
 
-### 0. Feature choice: Search & Filter with Pagination (#2)
+### 0. Feature choices: #2 + #5 (and why not #1)
 
-We chose Feature #2 from the take-home exercise because it best demonstrates backend skills relevant to the role:
+The take-home exercise listed several optional features. I implemented **#2** first, then **#5**, because they complement each other in the product UX:
 
-- **CQRS read path** — queries, handlers, DTOs, pagination
-- **External API integration** — PokeAPI proxy with caching and rate limiting
-- **Data transformation** — normalizing PokeAPI responses into clean frontend contracts
-- **Product thinking** — combinable filters, dropdown UX, search
+| Feature | Role in the app |
+|---------|-----------------|
+| **#2 — Search & Filter** | Find Pokémon quickly (browse / discovery) |
+| **#5 — Favorites / Collection** | Save what you care about (persisted per user) |
 
-Feature #5 (Favorites) was considered as a complementary second feature but deferred to stay within the 2–3 hour scope. The current architecture supports adding it later via CQRS commands without restructuring.
+**Why they work better together:** #2 alone is read-only browsing; #5 alone has little value without a way to discover Pokémon. Combined, the flow feels like **shopping on Amazon** — you search and filter the catalog, then add items to your “cart” (favorites / caught) with one tap on the card. The collection sidebar slides in from the right so you can review what you picked without leaving the browse experience.
+
+**Feature #1 (team comparison):** I would have liked to include this — it’s a strong demo of analytics and domain modeling — but I did not have time to design a fair way to compare teams (stats, typings, coverage, etc.) in a useful UI. **#5 was a better fit for the remaining scope** because it showcases full **CRUD**, auth, persistence, and CQRS commands alongside the existing read-heavy #2 stack.
+
+**#5 over #1 for this pass:** secured write endpoints, EF Core + migrations, JWT, and collection stats by generation are concrete backend skills to demonstrate; team comparison remains a good follow-up once the comparison model is defined.
 
 ---
 
@@ -520,12 +531,13 @@ CORS is configured for Angular's default port (`4200`).
 
 ---
 
-## What I'd Do With More Time
+## Future Improvements
 
-- Integration tests with `WireMock` for PokeAPI responses
+- **SQL Server instead of SQLite** — for a production multi-instance deployment, SQL Server (or another shared database) would be the better default for concurrent writes and ops tooling. For this take-home scope (single API pod, local Skaffold, modest data), **SQLite on a PVC is sufficient** and keeps setup simple.
+- Feature **#1 — team comparison** once a clear comparison model exists (e.g. type coverage, stat totals, role tags)
+- Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
-- Feature #5 (Favorites / Collection) on top of this search infrastructure
 - Official artwork hydration (`ArtworkUrl`) as optional upgrade over sprites
 - Precomputed filter intersection indexes for hot combinations (type + generation)
 

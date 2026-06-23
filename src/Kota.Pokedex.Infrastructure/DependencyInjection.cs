@@ -1,7 +1,9 @@
+using Kota.Pokedex.Application.Interfaces;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Options;
 using Kota.Pokedex.Infrastructure.Caching;
 using Kota.Pokedex.Infrastructure.ExternalServices.PokeApi;
+using Kota.Pokedex.Infrastructure.Metrics;
 using Kota.Pokedex.Infrastructure.Persistence;
 using Kota.Pokedex.Infrastructure.Repositories;
 using Kota.Pokedex.Infrastructure.Security;
@@ -23,6 +25,7 @@ public static class DependencyInjection {
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICollectionRepository, CollectionRepository>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<IPokedexMetricsService, PokedexMetricsService>();
 
         var cacheProvider = configuration.GetSection(CacheOptions.SectionName)["Provider"] ?? "Memory";
 
