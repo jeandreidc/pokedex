@@ -40,6 +40,11 @@ public sealed class PokedexWebApplicationFactory : WebApplicationFactory<Program
 
             services.RemoveAll<IPokeApiClient>();
             services.AddSingleton<IPokeApiClient, FakePokeApiClient>();
+
+            services.RemoveAll<IWarmupState>();
+            var warmupState = new WarmupState();
+            warmupState.MarkComplete();
+            services.AddSingleton<IWarmupState>(warmupState);
         });
     }
 }

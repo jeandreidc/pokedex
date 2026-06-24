@@ -1,3 +1,4 @@
+using Kota.Pokedex.Core.Constants;
 using Kota.Pokedex.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -6,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Kota.Pokedex.Infrastructure.Services;
 
 public class PokemonPrefetchHostedService : IHostedService {
-    public const int DefaultFirstPagePrefetchSize = 24;
+    public const int DefaultFirstPagePrefetchSize = PokemonPagination.CatalogPageSize;
 
     private readonly IServiceProvider _serviceProvider;
     private readonly IHostApplicationLifetime _lifetime;

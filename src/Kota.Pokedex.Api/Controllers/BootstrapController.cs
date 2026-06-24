@@ -22,11 +22,9 @@ public class BootstrapController : ControllerBase {
     [ProducesResponseType(typeof(BootstrapDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<BootstrapDto>> Get(
-        [FromQuery] int pageSize = 12,
         [FromQuery] int abilityPageSize = 50,
         CancellationToken cancellationToken = default) =>
         Ok(await _mediator.Send(new GetBootstrapQuery {
-            PageSize = pageSize,
             AbilityPageSize = abilityPageSize
         }, cancellationToken));
 }

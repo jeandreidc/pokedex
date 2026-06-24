@@ -29,6 +29,9 @@ public static class PokemonIndexServiceMock {
         mock.Setup(s => s.GetPokemonCardDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => CardDetailsFor(id));
 
+        mock.Setup(s => s.GetCachedCardDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => (PokemonCardDetails?)null);
+
         return mock;
     }
 

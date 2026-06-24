@@ -17,18 +17,15 @@ public class GetBootstrapQueryHandler : IRequestHandler<GetBootstrapQuery, Boots
             Page = 1,
             PageSize = request.AbilityPageSize
         }, cancellationToken);
-        var pokemonTask = _mediator.Send(new SearchPokemonQuery {
-            Page = 1,
-            PageSize = request.PageSize
-        }, cancellationToken);
+        var catalogCountTask = _mediator.Send(new GetPokemonCatalogCountQuery(), cancellationToken);
 
-        await Task.WhenAll(typesTask, generationsTask, abilitiesTask, pokemonTask);
+        await Task.WhenAll(typesTask, generationsTask, abilitiesTask, catalogCountTask);
 
         return new BootstrapDto {
             Types = await typesTask,
             Generations = await generationsTask,
             Abilities = await abilitiesTask,
-            Pokemon = await pokemonTask
+            PokemonTotalCount = await catalogCountTask
         };
     }
 }

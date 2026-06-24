@@ -44,5 +44,5 @@ export interface BootstrapPayload {
   types: FilterOption[];
   generations: FilterOption[];
   abilities: PagedResult<FilterOption>;
-  pokemon: PagedResult<PokemonSummary>;
+  pokemonTotalCount: number;
 }

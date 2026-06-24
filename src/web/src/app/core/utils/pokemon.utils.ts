@@ -43,10 +43,8 @@ export function formatGenLabel(generation?: string | null): string | null {
   return roman ? `GEN ${roman}` : null;
 }
 
-export function computePageSize(width: number, height: number): number {
-  const cardWidth = 268;
-  const cardHeight = 96;
-  const cols = Math.max(1, Math.floor(width / cardWidth));
-  const rows = Math.max(1, Math.floor(height / cardHeight));
-  return Math.min(100, Math.max(6, cols * rows));
+export function computeTotalPages(totalCount: number, pageSize: number): number {
+  if (totalCount <= 0) return 0;
+  if (pageSize <= 0) return 1;
+  return Math.ceil(totalCount / pageSize);
 }

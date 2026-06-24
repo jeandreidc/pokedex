@@ -199,8 +199,11 @@ Selecting a dropdown value sends the slug to the search endpoint, e.g. `GET /api
 Single call for everything the Pokedex page needs on first paint — filter dropdowns, first page of abilities (with totals), and first page of Pokémon (with totals):
 
 ```http
-GET /api/bootstrap?pageSize=12&abilityPageSize=50
+GET /api/bootstrap?pageSize=24&abilityPageSize=50
+GET /api/ready
 ```
+
+`GET /api/ready` returns `200` when startup warmup finished, `503` while still prefetching. The Angular app polls this before bootstrap so the first payload is served from a warm cache.
 
 **Response shape:**
 
@@ -573,7 +576,7 @@ The frontend (`src/web/`) is an Angular standalone SPA that calls the backend AP
 | Type badges | `types[]` with type-colored pills |
 | Ability + Generation | **Abilities** label + capsules; generation as *GEN I* (italic grey) under name/id |
 
-**Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))` and a `ResizeObserver` computes `pageSize` from the visible grid area so each page fills the viewport with as many cards as fit (6–100).
+**Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))`. **`pageSize` is fixed at 24** (aligned with API startup prefetch). `totalPages` is computed client-side from `totalCount ÷ pageSize` and only `totalCount` updates when filters change — not on every page navigation.
 
 **Filters:** Types and generations load from `/api/bootstrap` on first paint. Abilities use the first page from bootstrap (`totalCount` / `totalPages` for pagination); typing in the ability dropdown calls `/api/filters/abilities?search=…` for typeahead.
 
@@ -659,7 +662,7 @@ The first webpage load was slow after deploying or restarting the API — not be
 | **API** | `GET /api/bootstrap` — parallel fetch of types, generations, abilities page 1, Pokémon page 1; all include pagination metadata where applicable |
 | **Warmup** | `PrefetchFirstPageCardDetailsAsync(24)` — pre-hydrate only the first N cards (by id), not every Pokémon |
 | **Readiness** | `IWarmupState` + `WarmupHealthCheck` → `/health/ready`; K8s `readinessProbe` in `api-deployment.yaml` |
-| **Frontend** | `BootstrapApiService`; `PokedexPageComponent` calls bootstrap on `ngOnInit`; abilities typeahead via paginated `/api/filters/abilities` only when the user types |
+| **Frontend** | `BootstrapApiService` polls `/api/ready` then loads bootstrap; fixed `pageSize = 24` (matches prefetch); `totalPages` computed from `totalCount`; `switchMap` cancels stale requests; filter selects use `(change)` not `ngModelChange` |
 
 **Flow after the change:**
 

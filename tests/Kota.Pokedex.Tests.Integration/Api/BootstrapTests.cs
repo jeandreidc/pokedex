@@ -14,8 +14,8 @@ public sealed class BootstrapTests(PokedexWebApplicationFactory factory) {
     private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
-    public async Task Get_ReturnsFirstPageWithTotalPokemonCount() {
-        var response = await _client.GetAsync("/api/bootstrap?pageSize=5");
+    public async Task Get_ReturnsMetadataWithPokemonCatalogCount() {
+        var response = await _client.GetAsync("/api/bootstrap");
 
         response.EnsureSuccessStatusCode();
 
@@ -26,17 +26,14 @@ public sealed class BootstrapTests(PokedexWebApplicationFactory factory) {
         payload.Generations.Should().NotBeEmpty();
         payload.Abilities.TotalCount.Should().BeGreaterThan(0);
         payload.Abilities.Items.Should().NotBeEmpty();
-        payload.Pokemon.TotalCount.Should().Be(25);
-        payload.Pokemon.TotalPages.Should().Be(5);
-        payload.Pokemon.Items.Should().HaveCount(5);
-        payload.Pokemon.Items[0].Types.Should().NotBeEmpty();
+        payload.PokemonTotalCount.Should().Be(25);
     }
 
     private sealed class BootstrapJson {
         public List<FilterOptionJson> Types { get; set; } = [];
         public List<FilterOptionJson> Generations { get; set; } = [];
         public PagedResultJson<FilterOptionJson> Abilities { get; set; } = new();
-        public PagedResultJson<PokemonSummaryJson> Pokemon { get; set; } = new();
+        public int PokemonTotalCount { get; set; }
     }
 
     private sealed class PagedResultJson<T> {
@@ -51,11 +48,5 @@ public sealed class BootstrapTests(PokedexWebApplicationFactory factory) {
         public int Id { get; set; }
         public string Name { get; set; } = "";
         public string DisplayName { get; set; } = "";
-    }
-
-    private sealed class PokemonSummaryJson {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public List<string> Types { get; set; } = [];
     }
 }

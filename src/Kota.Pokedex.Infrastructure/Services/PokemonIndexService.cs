@@ -161,6 +161,9 @@ public class PokemonIndexService : IPokemonIndexService {
         return cardDetails;
     }
 
+    public Task<PokemonCardDetails?> GetCachedCardDetailsAsync(int id, CancellationToken cancellationToken = default) =>
+        _cacheService.GetAsync<PokemonCardDetails>(CacheKeys.PokemonCard(id), cancellationToken);
+
     private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken) {
         var cached = await _cacheService.GetAsync<Dictionary<int, string>>(CacheKeys.PokemonGenerationMap, cancellationToken);
         if (cached is not null) {

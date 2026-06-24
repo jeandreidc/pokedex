@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Kota.Pokedex.Core.Constants;
 using Kota.Pokedex.Tests.Integration.Fixtures;
 using Kota.Pokedex.Tests.Integration.Support;
 
@@ -17,7 +18,7 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
     [Fact]
     public async Task Get_FirstPage_ReturnsCorrectPaginationMetadata() {
-        var response = await _client.GetAsync("/api/pokemon?page=1&pageSize=5");
+        var response = await _client.GetAsync("/api/pokemon?page=1");
 
         response.EnsureSuccessStatusCode();
 
@@ -25,11 +26,11 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
         page.Should().NotBeNull();
         page!.Page.Should().Be(1);
-        page.PageSize.Should().Be(5);
+        page.PageSize.Should().Be(PokemonPagination.CatalogPageSize);
         page.TotalCount.Should().Be(IntegrationPokeApiFixtures.TotalPokemon);
-        page.TotalPages.Should().Be(5);
-        page.Items.Should().HaveCount(5);
-        page.Items.Select(i => i.Id).Should().Equal(1, 2, 3, 4, 5);
+        page.TotalPages.Should().Be(2);
+        page.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
+        page.Items.Select(i => i.Id).Should().Equal(Enumerable.Range(1, PokemonPagination.CatalogPageSize));
         page.Items.Should().AllSatisfy(i => {
             i.Name.Should().NotBeNullOrWhiteSpace();
             i.SpriteUrl.Should().NotBeNullOrWhiteSpace();
@@ -40,7 +41,7 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
     [Fact]
     public async Task Get_SecondPage_ReturnsNextBatch() {
-        var response = await _client.GetAsync("/api/pokemon?page=2&pageSize=5");
+        var response = await _client.GetAsync("/api/pokemon?page=2");
 
         response.EnsureSuccessStatusCode();
 
@@ -48,13 +49,14 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
         page.Should().NotBeNull();
         page!.Page.Should().Be(2);
-        page.Items.Should().HaveCount(5);
-        page.Items.Select(i => i.Id).Should().Equal(6, 7, 8, 9, 10);
+        page.PageSize.Should().Be(PokemonPagination.CatalogPageSize);
+        page.Items.Should().HaveCount(1);
+        page.Items.Select(i => i.Id).Should().Equal(25);
     }
 
     [Fact]
     public async Task Get_PageZero_NormalizesToFirstPage() {
-        var response = await _client.GetAsync("/api/pokemon?page=0&pageSize=5");
+        var response = await _client.GetAsync("/api/pokemon?page=0");
 
         response.EnsureSuccessStatusCode();
 
@@ -62,11 +64,11 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
         page.Should().NotBeNull();
         page!.Page.Should().Be(1);
-        page.Items.Select(i => i.Id).Should().Equal(1, 2, 3, 4, 5);
+        page.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
     }
 
     [Fact]
-    public async Task Get_PageSizeOverMax_ClampsTo100() {
+    public async Task Get_ClientPageSize_IsIgnoredAndCatalogPageSizeIsUsed() {
         var response = await _client.GetAsync("/api/pokemon?page=1&pageSize=500");
 
         response.EnsureSuccessStatusCode();
@@ -74,14 +76,13 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
         var page = await response.Content.ReadFromJsonAsync<PagedResultJson<PokemonSummaryJson>>(JsonOptions);
 
         page.Should().NotBeNull();
-        page!.PageSize.Should().Be(100);
-        page.TotalCount.Should().Be(IntegrationPokeApiFixtures.TotalPokemon);
-        page.Items.Should().HaveCount(IntegrationPokeApiFixtures.TotalPokemon);
+        page!.PageSize.Should().Be(PokemonPagination.CatalogPageSize);
+        page.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
     }
 
     [Fact]
     public async Task Get_WithSearchAndPagination_ReturnsFilteredPage() {
-        var response = await _client.GetAsync("/api/pokemon?search=char&page=1&pageSize=2");
+        var response = await _client.GetAsync("/api/pokemon?search=char&page=1");
 
         response.EnsureSuccessStatusCode();
 
@@ -89,9 +90,9 @@ public sealed class PokemonPaginationTests(PokedexWebApplicationFactory factory)
 
         page.Should().NotBeNull();
         page!.TotalCount.Should().Be(3);
-        page.TotalPages.Should().Be(2);
-        page.Items.Should().HaveCount(2);
-        page.Items.Select(i => i.Name).Should().Equal("charmander", "charmeleon");
+        page.TotalPages.Should().Be(1);
+        page.Items.Should().HaveCount(3);
+        page.Items.Select(i => i.Name).Should().Equal("charmander", "charmeleon", "charizard");
     }
 
     private sealed class PagedResultJson<T> {

@@ -6,13 +6,13 @@
       type="search"
       placeholder="Name contains…"
       [(ngModel)]="value.search"
-      (ngModelChange)="onSearchInput()"
+      (input)="onSearchInput()"
     />
   </div>
 
   <div class="filter-toolbar__field">
     <label for="type">Type</label>
-    <select id="type" [(ngModel)]="value.type" (ngModelChange)="onFieldChange()">
+    <select id="type" [(ngModel)]="value.type" (change)="onFieldChange()">
       <option value="">All types</option>
       @for (type of types; track type.name) {
         <option [value]="type.name">{{ type.displayName }}</option>
@@ -30,7 +30,7 @@
       (ngModelChange)="onAbilityQueryInput()"
       [disabled]="loadingAbilities"
     />
-    <select id="ability" [(ngModel)]="value.ability" (ngModelChange)="onFieldChange()" [disabled]="loadingAbilities">
+    <select id="ability" [(ngModel)]="value.ability" (change)="onFieldChange()" [disabled]="loadingAbilities">
       <option value="">All abilities</option>
       @for (ability of abilities; track ability.name) {
         <option [value]="ability.name">{{ ability.displayName }}</option>
@@ -40,7 +40,7 @@
 
   <div class="filter-toolbar__field">
     <label for="generation">Generation</label>
-    <select id="generation" [(ngModel)]="value.generation" (ngModelChange)="onFieldChange()">
+    <select id="generation" [(ngModel)]="value.generation" (change)="onFieldChange()">
       <option value="">All generations</option>
       @for (gen of generations; track gen.name) {
         <option [value]="gen.name">{{ gen.displayName }}</option>
