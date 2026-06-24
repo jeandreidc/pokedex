@@ -143,7 +143,7 @@ Open **http://localhost:4200** — search/filter UI with Pokémon sprite cards.
 ### Search Pokemon (combinable filters)
 
 ```http
-GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1&pageSize=20
+GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1
 ```
 
 | Parameter    | Description                                      |
@@ -153,7 +153,7 @@ GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1&pageSiz
 | `ability`   | Ability slug, e.g. `overgrow` (optional)         |
 | `generation`| Generation id (`1`) or slug (`generation-i`)     |
 | `page`      | Page number (default: 1)                         |
-| `pageSize`  | Items per page (default: 20, max: 100)           |
+| `pageSize`  | **Ignored** — server uses fixed catalog size **24** |
 
 **Response:**
 
@@ -163,9 +163,9 @@ GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1&pageSiz
     { "id": 25, "name": "pikachu", "spriteUrl": "...", "types": ["electric"], "abilities": ["Static"], "generation": "I" }
   ],
   "page": 1,
-  "pageSize": 20,
-  "totalCount": 42,
-  "totalPages": 3
+  "pageSize": 24,
+  "totalCount": 1025,
+  "totalPages": 43
 }
 ```
 
@@ -310,7 +310,7 @@ The OpenAPI spec is available at `/swagger/v1/swagger.json`.
 ## Architecture
 
 ```
-Angular (future)  →  Kota.Pokedex.Api  →  MediatR (CQRS)
+Angular (web/)  →  Kota.Pokedex.Api  →  MediatR (CQRS)
                               ↓
                     Application (Queries)
                               ↓
@@ -421,11 +421,11 @@ Kota.Pokedex/
 
 ---
 
-### 6. Angular frontend (planned) + CORS
+### 6. Angular frontend + CORS
 
-The frontend will be an Angular SPA at `src/web/`, calling the backend API only. CORS is configured for Angular's default dev port (`4200`).
+The frontend is an Angular standalone SPA at `src/web/`, calling the backend API only. CORS is configured for port `4200`. Initial load uses `/api/ready` → `/api/bootstrap` → `/api/pokemon?page=1`; all pages share the same search endpoint with a fixed server-side page size of 24.
 
-**Why Angular:** User's preferred frontend stack for the take-home. Backend is frontend-agnostic — any SPA consuming the REST API works.
+**Why Angular:** Preferred frontend stack for this project. The backend is frontend-agnostic — any SPA consuming the REST API works.
 
 ---
 
@@ -577,9 +577,16 @@ Swashbuckle serves interactive API docs at the root URL (`/`). The OpenAPI spec 
 
 ### 17. Pagination owned by the backend
 
-All list endpoints return `PagedResult<T>` with `items`, `page`, `pageSize`, `totalCount`, and `totalPages`. Default page size is 20 (max 100) for pokemon; 50 (max 100) for ability dropdown.
+All list endpoints return `PagedResult<T>` with `items`, `page`, `pageSize`, `totalCount`, and `totalPages`.
 
-**Why:** PokeAPI pagination (`limit`/`offset`) only applies to raw list fetches. Our filtered/intersected results are paginated in-memory after filtering — the frontend never needs to understand PokeAPI pagination semantics.
+| Endpoint | Page size |
+|----------|-----------|
+| `/api/pokemon` | Fixed **24** (`PokemonPagination.CatalogPageSize`) — client `pageSize` query param is ignored |
+| `/api/filters/abilities` | Default 50 (max 100) |
+
+The frontend stores `catalogTotalCount` from bootstrap or filter changes and computes `totalPages` client-side. Page navigation does not change the catalog total.
+
+**Why:** PokeAPI pagination (`limit`/`offset`) only applies to raw list fetches. Our filtered/intersected results are paginated in-memory after filtering — the frontend never needs PokeAPI pagination semantics.
 
 ---
 

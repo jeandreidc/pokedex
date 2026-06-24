@@ -217,3 +217,37 @@ public async Task GetUserById_WithValidId_ReturnsUser() {
     Assert.Equal(expected.Id, result.Id);
 }
 ```
+
+## Structured Logging
+
+All backend logging uses **`ILogger<T>`** with **message templates** — never string interpolation.
+
+```csharp
+// Good
+_logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
+
+// Bad
+_logger.LogInformation($"Pokemon index warmup complete with {index.Count}");
+```
+
+- Pass exceptions as the first argument: `_logger.LogError(ex, "…")`
+- Console output is JSON via `AddJsonConsole()` in `Kota.Pokedex.ServiceDefaults`
+- When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, logs export to the Aspire Dashboard
+
+## Frontend (Angular / TypeScript)
+
+### Services & API calls
+- HTTP calls live in `core/services/` — not in components
+- DTO shapes in `core/models/` mirror backend Application DTOs
+- Use `normalizePagedResult()` for paginated API responses; do not trust varying client page sizes for Pokémon search
+
+### Pagination
+- Fixed catalog page size: **24** (`POKEMON_PAGE_SIZE` constant)
+- Store `catalogTotalCount` separately; only refresh on bootstrap or filter change
+- Use `switchMap` for in-flight request cancellation on page/filter changes
+
+### Components
+- Standalone components with explicit `imports`
+- Loading and error states for all data-fetching views
+- No direct PokeAPI calls from the browser
+

@@ -1,59 +1,50 @@
-# Web
+# Kota Pokedex — Web Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
+Angular standalone SPA for the Pokedex UI. All data comes from the backend API — never PokeAPI directly.
 
-## Development server
+## Prerequisites
 
-To start a local development server, run:
+- Node.js 20+
+- Backend API running (see root [README.md](../../README.md))
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Development
 
 ```bash
-ng generate component component-name
+npm install
+npm start          # http://localhost:4200 — proxies /api → backend
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The dev proxy is configured in `proxy.conf.json` (default target: `http://localhost:5164`).
+
+## Production build
 
 ```bash
-ng generate --help
+npm run build -- --configuration production
 ```
 
-## Building
+Output: `dist/web/browser/` — served by nginx in the Docker `web` target.
 
-To build the project run:
+## Key paths
 
-```bash
-ng build
+| Path | Purpose |
+|------|---------|
+| `src/app/features/pokedex/` | Main browse/search UI |
+| `src/app/core/services/bootstrap-api.service.ts` | `/api/ready` + `/api/bootstrap` |
+| `src/app/core/services/pokemon-api.service.ts` | `/api/pokemon` search |
+| `src/app/core/constants/pokemon-pagination.constants.ts` | Fixed page size (24) |
+| `src/app/core/models/api.models.ts` | TypeScript DTOs |
+
+## Initial load flow
+
+```
+GET /api/ready        → wait for API warmup
+GET /api/bootstrap    → filters + pokemonTotalCount
+GET /api/pokemon?page=1 → first 24 cards
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Next page: `GET /api/pokemon?page=2` (on demand).
 
-## Running unit tests
+## Related docs
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- [README.md](../../README.md) — full stack run instructions
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) — bootstrap, prefetch, and pagination design

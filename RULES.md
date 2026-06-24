@@ -288,3 +288,28 @@ Content: namespace Kota.Pokedex.Core.Entities;
 - Controllers: max 200 lines
 - If larger, break into smaller classes
 - ❌ NO "God Classes"
+
+## API & Frontend Integration Rules
+
+### 23. Backend-only external API access
+- ✅ All PokeAPI calls go through `Infrastructure/ExternalServices/PokeApi`
+- ✅ Frontend calls backend REST endpoints only
+- ❌ NO direct PokeAPI calls from `src/web/`
+
+### 24. Bootstrap & initial load
+- ✅ `GET /api/bootstrap` returns filter metadata + `pokemonTotalCount` only
+- ✅ Pokémon cards load via `GET /api/pokemon?page=N` for every page including page 1
+- ✅ Frontend polls `GET /api/ready` before bootstrap when possible
+- ❌ NO Pokémon item list in `BootstrapDto`
+
+### 25. Pokémon pagination
+- ✅ Server enforces `PokemonPagination.CatalogPageSize = 24` in `SearchPokemonQueryHandler`
+- ✅ Client `pageSize` query parameter on `/api/pokemon` is ignored
+- ✅ Frontend keeps `catalogTotalCount` stable during page navigation
+- ❌ NO dynamic viewport-based page sizing for catalog pagination
+- ❌ NO background prefetch of pages 2+ (on-demand only unless explicitly added later)
+
+### 26. Readiness & warmup
+- ✅ `PokemonPrefetchHostedService` runs after `ApplicationStarted`
+- ✅ `/health/ready` and `GET /api/ready` reflect `IWarmupState.IsComplete`
+- ✅ K8s readiness probe uses `/health/ready` before routing traffic
