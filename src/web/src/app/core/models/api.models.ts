@@ -39,3 +39,10 @@ export interface ActiveFilters {
   generation?: string;
   generationLabel?: string;
 }
+
+export interface BootstrapPayload {
+  types: FilterOption[];
+  generations: FilterOption[];
+  abilities: PagedResult<FilterOption>;
+  pokemon: PagedResult<PokemonSummary>;
+}

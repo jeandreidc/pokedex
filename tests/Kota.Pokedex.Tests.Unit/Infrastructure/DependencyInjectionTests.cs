@@ -50,7 +50,8 @@ public class DependencyInjectionTests {
                 ["Cache:Provider"] = cacheProvider,
                 ["Cache:DefaultTtlMinutes"] = "60",
                 ["PokeApi:BaseUrl"] = "https://pokeapi.co/api/v2/",
-                ["ConnectionStrings:redis"] = "localhost:6379"
+                ["ConnectionStrings:redis"] = "localhost:6379",
+                ["ConnectionStrings:PokedexDb"] = "Data Source=test.db"
             })
             .Build();
 }
