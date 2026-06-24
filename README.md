@@ -196,14 +196,23 @@ Selecting a dropdown value sends the slug to the search endpoint, e.g. `GET /api
 
 ### Bootstrap (initial page load)
 
-Single call for everything the Pokedex page needs on first paint — filter dropdowns, first page of abilities (with totals), and first page of Pokémon (with totals):
+Single call for **filter metadata** and the **total Pokémon catalog count** — not the Pokémon cards themselves. Cards are always loaded through `/api/pokemon` (same path for page 1, page 2, and so on).
 
 ```http
-GET /api/bootstrap?pageSize=24&abilityPageSize=50
 GET /api/ready
+GET /api/bootstrap?abilityPageSize=50
+GET /api/pokemon?page=1
 ```
 
-`GET /api/ready` returns `200` when startup warmup finished, `503` while still prefetching. The Angular app polls this before bootstrap so the first payload is served from a warm cache.
+| Step | Endpoint | Purpose |
+|------|----------|---------|
+| 1 | `GET /api/ready` | Frontend polls until startup warmup finished (`200`) or times out |
+| 2 | `GET /api/bootstrap` | Types, generations, abilities page 1, `pokemonTotalCount` |
+| 3 | `GET /api/pokemon?page=1` | First page of cards (24 items, fixed server-side page size) |
+
+`GET /api/ready` returns `200` when startup warmup finished, `503` while still prefetching.
+
+**Why keep `BootstrapDto`?** It still saves round-trips on first paint: one request for three filter lists + abilities page 1 + catalog count, instead of four separate `GET /api/filters/*` calls plus a count query.
 
 **Response shape:**
 
@@ -218,17 +227,59 @@ GET /api/ready
     "totalCount": 367,
     "totalPages": 8
   },
-  "pokemon": {
-    "items": [{ "id": 1, "name": "bulbasaur", "spriteUrl": "...", "types": ["grass", "poison"], "abilities": ["Overgrow"], "generation": "I" }],
-    "page": 1,
-    "pageSize": 12,
-    "totalCount": 1025,
-    "totalPages": 86
-  }
+  "pokemonTotalCount": 1025
 }
 ```
 
-`pokemon.totalCount` and `pokemon.totalPages` let the UI show “page X of Y” immediately without a separate count request. Only **page 1** is returned — not the full catalog.
+`pokemonTotalCount` lets the UI compute `totalPages` immediately (`ceil(1025 ÷ 24) = 43`) before the user navigates. Pokémon **items** are not in bootstrap — they come from `/api/pokemon`.
+
+### Bootstrap, prefetch & page loading (code map)
+
+There are **two different mechanisms**: (A) **startup prefetch** on the API, and (B) **on-demand pagination** when the user clicks Next. There is **no background prefetch of pages 2, 3, …** today.
+
+#### A. Startup prefetch (API warmup, before traffic)
+
+Runs once after the host starts. Goal: warm Redis/memory cache so the first real user requests are fast.
+
+| What | Where in code |
+|------|----------------|
+| Orchestrator | `src/Kota.Pokedex.Infrastructure/Services/PokemonPrefetchHostedService.cs` |
+| Pokémon name index + generation map | `PokemonIndexService.WarmupAsync()` |
+| Filter lists (types, generations, abilities) | `FilterMetadataService.WarmupAsync()` |
+| First-page card details (24 Pokémon) | `PokemonIndexService.PrefetchFirstPageCardDetailsAsync()` |
+| Mark ready / health | `IWarmupState` → `WarmupHealthCheck` → `/health/ready` and `GET /api/ready` |
+| DI registration | `src/Kota.Pokedex.Infrastructure/DependencyInjection.cs` |
+| K8s readiness probe | `infra/kubernetes/api-deployment.yaml` → `/health/ready` |
+
+```
+ApplicationStarted
+  → PokemonPrefetchHostedService.WarmupAsync()
+      → index + filter metadata + prefetch 24 card details (PokeAPI → cache)
+      → IWarmupState.MarkComplete()
+  → /health/ready = healthy
+```
+
+#### B. Page loading (browser, on demand)
+
+| What | Where in code |
+|------|----------------|
+| Poll ready, then bootstrap metadata | `src/web/src/app/core/services/bootstrap-api.service.ts` |
+| Initial load: bootstrap → page 1 | `PokedexPageComponent.loadInitial()` |
+| Next/Previous + filter changes | `PokedexPageComponent.setupPageLoader()` → `PokemonApiService.search()` |
+| Fixed page size (24) | `src/Kota.Pokedex.Core/Constants/PokemonPagination.cs` (API) · `src/web/src/app/core/constants/pokemon-pagination.constants.ts` (web) |
+| Catalog count query (bootstrap) | `GetPokemonCatalogCountQueryHandler.cs` |
+| Paginated search (all pages) | `SearchPokemonQueryHandler.cs` |
+
+```
+Browser
+  → poll GET /api/ready
+  → GET /api/bootstrap          (metadata + pokemonTotalCount)
+  → GET /api/pokemon?page=1     (24 cards)
+User clicks Next
+  → GET /api/pokemon?page=2     (on demand — not prefetched in background)
+```
+
+**Not implemented:** background loading of pages 2+ (e.g. prefetch next page while user reads page 1). That is listed under [Future Improvements](#future-improvements). Pages 2+ hydrate card details on first visit, then stay cached.
 
 ### Health checks
 
@@ -659,16 +710,18 @@ The first webpage load was slow after deploying or restarting the API — not be
 
 | Layer | Change |
 |-------|--------|
-| **API** | `GET /api/bootstrap` — parallel fetch of types, generations, abilities page 1, Pokémon page 1; all include pagination metadata where applicable |
-| **Warmup** | `PrefetchFirstPageCardDetailsAsync(24)` — pre-hydrate only the first N cards (by id), not every Pokémon |
-| **Readiness** | `IWarmupState` + `WarmupHealthCheck` → `/health/ready`; K8s `readinessProbe` in `api-deployment.yaml` |
-| **Frontend** | `BootstrapApiService` polls `/api/ready` then loads bootstrap; fixed `pageSize = 24` (matches prefetch); `totalPages` computed from `totalCount`; `switchMap` cancels stale requests; filter selects use `(change)` not `ngModelChange` |
+| **API bootstrap** | `GET /api/bootstrap` — filter metadata + `pokemonTotalCount` only (no Pokémon items) |
+| **API search** | `GET /api/pokemon` — all pages; fixed `CatalogPageSize = 24` (client `pageSize` ignored) |
+| **Warmup** | `PrefetchFirstPageCardDetailsAsync(24)` — pre-hydrate first 24 cards into cache at startup |
+| **Readiness** | `IWarmupState` + `WarmupHealthCheck` → `/health/ready` + `GET /api/ready`; K8s readiness probe |
+| **Frontend** | Poll `/api/ready` → bootstrap → `/api/pokemon?page=1`; Next uses same search endpoint; `catalogTotalCount` locked during pagination |
 
 **Flow after the change:**
 
 ```
 Pod start → warmup (index + filters + prefetch 24 cards) → /health/ready = healthy
-Browser   → GET /api/bootstrap → first page + totalCount → faster first paint
+Browser   → /api/ready → /api/bootstrap → /api/pokemon?page=1
+Next page → /api/pokemon?page=2 (on demand, not background-prefetched)
 ```
 
 Redis init-container / retry logic was intentionally **not** included — the Skaffold setup stays simple; only shared Redis cache in K8s.
@@ -683,6 +736,7 @@ Redis init-container / retry logic was intentionally **not** included — the Sk
 - Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
+- **Background prefetch of next Pokémon page** while user views current page (pages 2+ load on demand today)
 - Official artwork hydration (`ArtworkUrl`) as optional upgrade over sprites
 - Precomputed filter intersection indexes for hot combinations (type + generation)
 
