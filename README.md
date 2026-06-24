@@ -194,12 +194,52 @@ GET /api/filters/abilities?search=bl&page=1&pageSize=50
 
 Selecting a dropdown value sends the slug to the search endpoint, e.g. `GET /api/pokemon?type=fire` or `GET /api/pokemon?ability=blaze`.
 
+### Bootstrap (initial page load)
+
+Single call for everything the Pokedex page needs on first paint — filter dropdowns, first page of abilities (with totals), and first page of Pokémon (with totals):
+
+```http
+GET /api/bootstrap?pageSize=12&abilityPageSize=50
+```
+
+**Response shape:**
+
+```json
+{
+  "types": [{ "id": 0, "name": "fire", "displayName": "Fire" }],
+  "generations": [{ "id": 1, "name": "generation-i", "displayName": "Generation I" }],
+  "abilities": {
+    "items": [{ "id": 1, "name": "stench", "displayName": "Stench" }],
+    "page": 1,
+    "pageSize": 50,
+    "totalCount": 367,
+    "totalPages": 8
+  },
+  "pokemon": {
+    "items": [{ "id": 1, "name": "bulbasaur", "spriteUrl": "...", "types": ["grass", "poison"], "abilities": ["Overgrow"], "generation": "I" }],
+    "page": 1,
+    "pageSize": 12,
+    "totalCount": 1025,
+    "totalPages": 86
+  }
+}
+```
+
+`pokemon.totalCount` and `pokemon.totalPages` let the UI show “page X of Y” immediately without a separate count request. Only **page 1** is returned — not the full catalog.
+
 ### Health checks
 
 ```http
 GET /health
+GET /health/ready
 GET /alive
 ```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/health` | Liveness — process is running |
+| `/health/ready` | Readiness — startup warmup finished (index, filters, first-page card prefetch) |
+| `/alive` | Minimal alive check |
 
 ### Swagger UI (API landing page)
 
@@ -389,9 +429,12 @@ PokeAPI removed hard rate limits in 2018, but fair use policy still applies. Cac
 | Pokemon name index | ~13 (`limit=100`) | PokeAPI has no text search — required for `?search=` |
 | Types list | ~1 | Dropdown populated instantly on first open |
 | Generations list | ~1 | Dropdown populated instantly on first open |
-| Abilities list | ~4 | Dropdown shows first page immediately without typing |
+| Abilities list | ~4 | First page + `totalCount` for paginated dropdown |
+| First-page card details | ~24 (default) | Types, abilities, generation on cards without per-row hydration on first paint |
 
-Managed by `PokemonIndexService` (pokemon data) and `FilterMetadataService` (dropdown lists).
+When warmup completes, `IWarmupState.MarkComplete()` flips `/health/ready` to healthy so Kubernetes does not route traffic to a cold pod.
+
+Managed by `PokemonIndexService` (pokemon data) and `FilterMetadataService` (dropdown lists). See [Later Changes](#later-changes) for the bootstrap endpoint and frontend impact.
 
 **Other prefetch strategies for scale:**
 
@@ -532,7 +575,7 @@ The frontend (`src/web/`) is an Angular standalone SPA that calls the backend AP
 
 **Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))` and a `ResizeObserver` computes `pageSize` from the visible grid area so each page fills the viewport with as many cards as fit (6–100).
 
-**Filters:** Types and generations load once from `/api/filters/*`. Abilities are paginated on the API (~367 total, max 100 per page) but the frontend **fetches all pages** on load and on search so the dropdown is never limited to A–C only.
+**Filters:** Types and generations load from `/api/bootstrap` on first paint. Abilities use the first page from bootstrap (`totalCount` / `totalPages` for pagination); typing in the ability dropdown calls `/api/filters/abilities?search=…` for typeahead.
 
 **Why `spriteUrl` not official artwork:** Sprites are already on every index entry — no extra PokeAPI detail call per card. Faster first paint and simpler backend; artwork can be added later via detail hydration if needed.
 
@@ -594,6 +637,38 @@ Typical production path:
 5. **Optional hardening** — distributed rate limiting (Redis-backed) if per-pod `RateLimiter` partitions are too coarse at high replica counts; Redis HA; managed DB with backups.
 
 For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: simple local Skaffold setup, full CRUD demo, and a clear upgrade path when traffic or availability requirements grow.
+
+---
+
+## Later Changes
+
+### Why this was done
+
+The first webpage load was slow after deploying or restarting the API — not because of Angular itself, but due to a **cold cache** and the number of separate requests the frontend used to make:
+
+1. **Many round-trips** — types, generations, abilities (previously fetching all ~367 abilities), and the first Pokémon page were separate `GET` requests.
+2. **Per-card hydration** — each Pokémon card needed a detail call for types, abilities, and generation; on the first search, no card payload was cached yet.
+3. **Cold pod in K8s** — when the API had just started, it was still fetching from PokeAPI while users were already loading the page.
+
+**Goal:** a single **bootstrap request** on the frontend, prefetch **only the first page** (not the full catalog), but include **`totalCount` / `totalPages`** immediately so the UI knows how many pages exist — and have the load balancer wait until the pod is **ready** before routing traffic.
+
+### What changed
+
+| Layer | Change |
+|-------|--------|
+| **API** | `GET /api/bootstrap` — parallel fetch of types, generations, abilities page 1, Pokémon page 1; all include pagination metadata where applicable |
+| **Warmup** | `PrefetchFirstPageCardDetailsAsync(24)` — pre-hydrate only the first N cards (by id), not every Pokémon |
+| **Readiness** | `IWarmupState` + `WarmupHealthCheck` → `/health/ready`; K8s `readinessProbe` in `api-deployment.yaml` |
+| **Frontend** | `BootstrapApiService`; `PokedexPageComponent` calls bootstrap on `ngOnInit`; abilities typeahead via paginated `/api/filters/abilities` only when the user types |
+
+**Flow after the change:**
+
+```
+Pod start → warmup (index + filters + prefetch 24 cards) → /health/ready = healthy
+Browser   → GET /api/bootstrap → first page + totalCount → faster first paint
+```
+
+Redis init-container / retry logic was intentionally **not** included — the Skaffold setup stays simple; only shared Redis cache in K8s.
 
 ---
 
