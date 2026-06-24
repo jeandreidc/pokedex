@@ -1,20 +1,27 @@
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-  inject
-} from '@angular/core';
-import { Subject, debounceTime, distinctUntilChanged, forkJoin, switchMap, takeUntil } from 'rxjs';
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  map,
+  of,
+  switchMap,
+  takeUntil
+} from 'rxjs';
+import { POKEMON_PAGE_SIZE } from '../../core/constants/pokemon-pagination.constants';
 import { ActiveFilters, FilterOption, PagedResult, PokemonSummary } from '../../core/models/api.models';
+import { BootstrapApiService } from '../../core/services/bootstrap-api.service';
 import { CollectionStore } from '../../core/services/collection.store';
 import { FilterApiService } from '../../core/services/filter-api.service';
 import { PokemonApiService } from '../../core/services/pokemon-api.service';
-import { computePageSize } from '../../core/utils/pokemon.utils';
+import { computeTotalPages } from '../../core/utils/pokemon.utils';
 import { FilterToolbarComponent, FilterToolbarValue } from './components/filter-toolbar/filter-toolbar.component';
 import { PokemonCardComponent } from './components/pokemon-card/pokemon-card.component';
+
+type PageLoadRequest = { page: number; refreshCatalogTotal: boolean };
+
+const EMPTY_FILTERS: FilterToolbarValue = { search: '', type: '', ability: '', generation: '' };
 
 @Component({
   selector: 'app-pokedex-page',
@@ -23,49 +30,60 @@ import { PokemonCardComponent } from './components/pokemon-card/pokemon-card.com
   templateUrl: './pokedex-page.component.html',
   styleUrl: './pokedex-page.component.scss'
 })
-export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
+export class PokedexPageComponent implements OnInit, OnDestroy {
+  private readonly bootstrapApi = inject(BootstrapApiService);
   private readonly pokemonApi = inject(PokemonApiService);
   private readonly filterApi = inject(FilterApiService);
   private readonly collectionStore = inject(CollectionStore);
   private readonly destroy$ = new Subject<void>();
   private readonly filterChange$ = new Subject<void>();
   private readonly abilitySearch$ = new Subject<string>();
-  private resizeObserver?: ResizeObserver;
-
-  @ViewChild('gridHost') gridHost?: ElementRef<HTMLElement>;
+  private readonly pageLoad$ = new Subject<PageLoadRequest>();
+  private filterSnapshot = JSON.stringify(EMPTY_FILTERS);
+  private loadGeneration = 0;
 
   types: FilterOption[] = [];
   generations: FilterOption[] = [];
   abilities: FilterOption[] = [];
   loadingAbilities = false;
 
-  filterValue: FilterToolbarValue = { search: '', type: '', ability: '', generation: '' };
+  filterValue: FilterToolbarValue = { ...EMPTY_FILTERS };
   activeFilters: ActiveFilters = {};
 
   results: PagedResult<PokemonSummary> | null = null;
+  catalogTotalCount = 0;
   page = 1;
-  pageSize = 12;
+  readonly pageSize = POKEMON_PAGE_SIZE;
   loading = false;
   error: string | null = null;
 
-  ngOnInit(): void {
-    this.loadFilterMetadata();
-    this.setupFilterPipeline();
-    this.setupAbilitySearch();
+  get totalPages(): number {
+    return computeTotalPages(this.catalogTotalCount, this.pageSize);
   }
 
-  ngAfterViewInit(): void {
-    this.setupResizeObserver();
-    queueMicrotask(() => this.loadPokemon(true));
+  get visibleCount(): number {
+    return this.results?.items.length ?? 0;
+  }
+
+  ngOnInit(): void {
+    this.setupPageLoader();
+    this.setupFilterPipeline();
+    this.setupAbilitySearch();
+    this.loadInitial();
   }
 
   ngOnDestroy(): void {
-    this.resizeObserver?.disconnect();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   onFiltersChange(value: FilterToolbarValue): void {
+    const nextSnapshot = JSON.stringify(value);
+    if (nextSnapshot === this.filterSnapshot) {
+      return;
+    }
+
+    this.filterSnapshot = nextSnapshot;
     this.filterValue = value;
     this.page = 1;
     this.filterChange$.next();
@@ -76,32 +94,102 @@ export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   goToPage(nextPage: number): void {
-    if (!this.results || nextPage < 1 || nextPage > this.results.totalPages) return;
+    if (!this.results || nextPage < 1 || nextPage > this.totalPages || nextPage === this.page) {
+      return;
+    }
+
     this.page = nextPage;
-    this.loadPokemon(false);
+    this.pageLoad$.next({ page: nextPage, refreshCatalogTotal: false });
   }
 
-  private loadFilterMetadata(): void {
-    forkJoin({
-      types: this.filterApi.getTypes(),
-      generations: this.filterApi.getGenerations(),
-      abilities: this.filterApi.getAllAbilities()
-    }).subscribe({
-      next: ({ types, generations, abilities }) => {
-        this.types = types;
-        this.generations = generations;
-        this.abilities = abilities;
-      },
-      error: () => {
-        this.error = 'Failed to load filter options. Is the API running?';
-      }
-    });
+  private loadInitial(): void {
+    const generation = ++this.loadGeneration;
+    this.loading = true;
+    this.error = null;
+
+    this.bootstrapApi
+      .load()
+      .pipe(
+        switchMap(metadata =>
+          this.pokemonApi.search(this.currentSearchParams(1)).pipe(
+            map(page => ({ metadata, page }))
+          )
+        ),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: ({ metadata, page }) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+
+          this.types = metadata.types;
+          this.generations = metadata.generations;
+          this.abilities = metadata.abilities.items;
+          this.catalogTotalCount = metadata.pokemonTotalCount;
+          this.filterSnapshot = JSON.stringify(this.filterValue);
+          this.applyPageResult(page, 1);
+          this.activeFilters = this.buildActiveFilters();
+          this.loading = false;
+        },
+        error: () => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+
+          this.loading = false;
+          this.error = 'Failed to load Pokedex. Is the API running?';
+        }
+      });
+  }
+
+  private setupPageLoader(): void {
+    this.pageLoad$
+      .pipe(
+        switchMap(request => {
+          const generation = ++this.loadGeneration;
+          this.loading = true;
+          this.error = null;
+
+          return this.pokemonApi.search(this.currentSearchParams(request.page)).pipe(
+            map(page => ({ generation, request, page })),
+            catchError(() => of({ generation, request, page: null }))
+          );
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(({ generation, request, page }) => {
+        if (generation !== this.loadGeneration) {
+          return;
+        }
+
+        if (!page) {
+          this.loading = false;
+          this.error = 'Failed to load Pokémon. Check that the API is running.';
+          return;
+        }
+
+        if (request.refreshCatalogTotal) {
+          this.catalogTotalCount = page.totalCount;
+        }
+
+        this.applyPageResult(page, request.page);
+        this.loading = false;
+      });
   }
 
   private setupFilterPipeline(): void {
-    this.filterChange$.pipe(debounceTime(300), takeUntil(this.destroy$)).subscribe(() => {
-      this.loadPokemon(false);
-    });
+    this.filterChange$
+      .pipe(
+        debounceTime(300),
+        map(() => JSON.stringify(this.filterValue)),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(() => {
+        this.page = 1;
+        this.pageLoad$.next({ page: 1, refreshCatalogTotal: true });
+      });
   }
 
   private setupAbilitySearch(): void {
@@ -111,13 +199,13 @@ export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
         distinctUntilChanged(),
         switchMap(term => {
           this.loadingAbilities = true;
-          return this.filterApi.getAllAbilities(term || undefined);
+          return this.filterApi.getAbilities(term || undefined, 1);
         }),
         takeUntil(this.destroy$)
       )
       .subscribe({
-        next: abilities => {
-          this.abilities = abilities;
+        next: page => {
+          this.abilities = page.items;
           this.loadingAbilities = false;
         },
         error: () => {
@@ -126,54 +214,20 @@ export class PokedexPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
-  private setupResizeObserver(): void {
-    if (!this.gridHost?.nativeElement || typeof ResizeObserver === 'undefined') return;
-
-    this.resizeObserver = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect;
-      const nextSize = computePageSize(width, height);
-      if (nextSize !== this.pageSize) {
-        this.pageSize = nextSize;
-        this.page = 1;
-        this.loadPokemon(false);
-      }
-    });
-
-    this.resizeObserver.observe(this.gridHost.nativeElement);
+  private currentSearchParams(page: number) {
+    return {
+      search: this.filterValue.search || undefined,
+      type: this.filterValue.type || undefined,
+      ability: this.filterValue.ability || undefined,
+      generation: this.filterValue.generation || undefined,
+      page,
+      pageSize: this.pageSize
+    };
   }
 
-  private loadPokemon(recalculatePageSize: boolean): void {
-    if (recalculatePageSize && this.gridHost?.nativeElement) {
-      const { clientWidth, clientHeight } = this.gridHost.nativeElement;
-      if (clientWidth > 0 && clientHeight > 0) {
-        this.pageSize = computePageSize(clientWidth, clientHeight);
-      }
-    }
-
-    this.loading = true;
-    this.error = null;
-    this.activeFilters = this.buildActiveFilters();
-
-    this.pokemonApi
-      .search({
-        search: this.filterValue.search || undefined,
-        type: this.filterValue.type || undefined,
-        ability: this.filterValue.ability || undefined,
-        generation: this.filterValue.generation || undefined,
-        page: this.page,
-        pageSize: this.pageSize
-      })
-      .subscribe({
-        next: result => {
-          this.results = result;
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-          this.error = 'Failed to load Pokémon. Check that the API is running on port 5164.';
-          this.results = null;
-        }
-      });
+  private applyPageResult(result: PagedResult<PokemonSummary>, page: number): void {
+    this.results = result;
+    this.page = page;
   }
 
   getCollectionState(pokemonId: number) {

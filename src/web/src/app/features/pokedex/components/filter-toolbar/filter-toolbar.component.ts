@@ -27,13 +27,14 @@ export class FilterToolbarComponent {
   @Output() abilitySearch = new EventEmitter<string>();
 
   abilityQuery = '';
+  private lastEmittedSnapshot = '';
 
   onFieldChange(): void {
-    this.valueChange.emit({ ...this.value });
+    this.emitIfChanged();
   }
 
   onSearchInput(): void {
-    this.onFieldChange();
+    this.emitIfChanged();
   }
 
   onAbilityQueryInput(): void {
@@ -42,11 +43,22 @@ export class FilterToolbarComponent {
 
   clearFilters(): void {
     this.abilityQuery = '';
+    this.lastEmittedSnapshot = '';
     this.valueChange.emit({ search: '', type: '', ability: '', generation: '' });
     this.abilitySearch.emit('');
   }
 
   get hasActiveFilters(): boolean {
     return !!(this.value.search || this.value.type || this.value.ability || this.value.generation);
+  }
+
+  private emitIfChanged(): void {
+    const snapshot = JSON.stringify(this.value);
+    if (snapshot === this.lastEmittedSnapshot) {
+      return;
+    }
+
+    this.lastEmittedSnapshot = snapshot;
+    this.valueChange.emit({ ...this.value });
   }
 }

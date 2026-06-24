@@ -3,6 +3,7 @@ using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Options;
 using Kota.Pokedex.Infrastructure.Caching;
 using Kota.Pokedex.Infrastructure.ExternalServices.PokeApi;
+using Kota.Pokedex.Infrastructure.Health;
 using Kota.Pokedex.Infrastructure.Metrics;
 using Kota.Pokedex.Infrastructure.Persistence;
 using Kota.Pokedex.Infrastructure.Repositories;
@@ -45,9 +46,13 @@ public static class DependencyInjection {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
+        services.AddSingleton<IWarmupState, WarmupState>();
         services.AddSingleton<IPokemonIndexService, PokemonIndexService>();
         services.AddSingleton<IFilterMetadataService, FilterMetadataService>();
         services.AddHostedService<PokemonPrefetchHostedService>();
+
+        services.AddHealthChecks()
+            .AddCheck<WarmupHealthCheck>("warmup", tags: ["ready"]);
 
         return services;
     }

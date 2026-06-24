@@ -1,4 +1,5 @@
 using Kota.Pokedex.Application.Queries.Pokemon;
+using Kota.Pokedex.Core.Constants;
 using Kota.Pokedex.Tests.Unit.Helpers.Mocks;
 
 namespace Kota.Pokedex.Tests.Unit.Application.Queries.Pokemon;
@@ -16,19 +17,19 @@ public class SearchPokemonQueryHandlerTests {
 
         result.TotalCount.Should().Be(25);
         result.Page.Should().Be(1);
-        result.PageSize.Should().Be(20);
-        result.Items.Should().HaveCount(20);
+        result.PageSize.Should().Be(PokemonPagination.CatalogPageSize);
+        result.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
         result.TotalPages.Should().Be(2);
     }
 
     [Fact]
     public async Task Handle_ReturnsSecondPage() {
-        var result = await _sut.Handle(new SearchPokemonQuery { Page = 2, PageSize = 10 }, CancellationToken.None);
+        var result = await _sut.Handle(new SearchPokemonQuery { Page = 2 }, CancellationToken.None);
 
-        result.Items.Should().HaveCount(10);
-        result.Items[0].Id.Should().Be(11);
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Id.Should().Be(25);
         result.TotalCount.Should().Be(25);
-        result.TotalPages.Should().Be(3);
+        result.TotalPages.Should().Be(2);
     }
 
     [Fact]
@@ -73,23 +74,24 @@ public class SearchPokemonQueryHandlerTests {
     }
 
     [Fact]
-    public async Task Handle_ClampsPageSizeToMax100() {
+    public async Task Handle_UsesCatalogPageSizeRegardlessOfRequest() {
         var result = await _sut.Handle(new SearchPokemonQuery { PageSize = 500 }, CancellationToken.None);
 
-        result.PageSize.Should().Be(100);
+        result.PageSize.Should().Be(PokemonPagination.CatalogPageSize);
+        result.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
     }
 
     [Fact]
     public async Task Handle_NormalizesPageToMinimumOne() {
-        var result = await _sut.Handle(new SearchPokemonQuery { Page = 0, PageSize = 5 }, CancellationToken.None);
+        var result = await _sut.Handle(new SearchPokemonQuery { Page = 0 }, CancellationToken.None);
 
         result.Page.Should().Be(1);
-        result.Items.Should().HaveCount(5);
+        result.Items.Should().HaveCount(PokemonPagination.CatalogPageSize);
     }
 
     [Fact]
     public async Task Handle_OrdersResultsById() {
-        var result = await _sut.Handle(new SearchPokemonQuery { PageSize = 25 }, CancellationToken.None);
+        var result = await _sut.Handle(new SearchPokemonQuery(), CancellationToken.None);
 
         result.Items.Select(i => i.Id).Should().BeInAscendingOrder();
     }

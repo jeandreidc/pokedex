@@ -17,5 +17,6 @@ spec:
       containers:
         - name: web
           image: kota-pokedex-web
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

@@ -14,6 +14,7 @@ namespace Microsoft.Extensions.Hosting;
 public static class Extensions {
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
+    private const string ReadinessEndpointPath = "/health/ready";
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder {
         builder.ConfigureJsonLogging();
@@ -73,12 +74,13 @@ public static class Extensions {
     }
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app) {
-        if (app.Environment.IsDevelopment()) {
-            app.MapHealthChecks(HealthEndpointPath);
-            app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions {
-                Predicate = r => r.Tags.Contains("live")
-            });
-        }
+        app.MapHealthChecks(HealthEndpointPath);
+        app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions {
+            Predicate = r => r.Tags.Contains("live")
+        });
+        app.MapHealthChecks(ReadinessEndpointPath, new HealthCheckOptions {
+            Predicate = r => r.Tags.Contains("ready")
+        });
 
         return app;
     }

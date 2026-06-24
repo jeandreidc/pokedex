@@ -11,4 +11,5 @@ public record SearchPokemonQuery : IRequest<PagedResult<PokemonSummaryDto>> {
     public string? Generation { get; init; }
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;
+    public bool CacheOnlyHydration { get; init; }
 }

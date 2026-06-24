@@ -27,7 +27,7 @@ public class PokemonController : ControllerBase {
     /// <param name="ability">Filter by ability slug, e.g. <c>overgrow</c>.</param>
     /// <param name="generation">Filter by generation id (<c>1</c>) or slug (<c>generation-i</c>).</param>
     /// <param name="page">Page number (default 1).</param>
-    /// <param name="pageSize">Items per page (default 20, max 100).</param>
+    /// <param name="pageSize">Ignored — catalog page size is fixed server-side (24).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<PokemonSummaryDto>), StatusCodes.Status200OK)]

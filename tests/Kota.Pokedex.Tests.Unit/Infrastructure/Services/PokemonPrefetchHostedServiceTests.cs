@@ -11,6 +11,7 @@ public class PokemonPrefetchHostedServiceTests {
     public async Task StartAsync_TriggersWarmupAfterApplicationStarted() {
         var indexMock = new Mock<IPokemonIndexService>();
         var filterMock = new Mock<IFilterMetadataService>();
+        var warmupState = new WarmupState();
         var startedCts = new CancellationTokenSource();
 
         var services = new ServiceCollection();
@@ -25,6 +26,7 @@ public class PokemonPrefetchHostedServiceTests {
         var sut = new PokemonPrefetchHostedService(
             provider,
             lifetimeMock.Object,
+            warmupState,
             NullLogger<PokemonPrefetchHostedService>.Instance);
 
         await sut.StartAsync(CancellationToken.None);
@@ -34,6 +36,10 @@ public class PokemonPrefetchHostedServiceTests {
 
         indexMock.Verify(s => s.WarmupAsync(It.IsAny<CancellationToken>()), Times.Once);
         filterMock.Verify(s => s.WarmupAsync(It.IsAny<CancellationToken>()), Times.Once);
+        indexMock.Verify(
+            s => s.PrefetchFirstPageCardDetailsAsync(PokemonPrefetchHostedService.DefaultFirstPagePrefetchSize, It.IsAny<CancellationToken>()),
+            Times.Once);
+        warmupState.IsComplete.Should().BeTrue();
     }
 
     [Fact]
@@ -42,6 +48,7 @@ public class PokemonPrefetchHostedServiceTests {
         indexMock.Setup(s => s.WarmupAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("warmup failed"));
 
+        var warmupState = new WarmupState();
         var startedCts = new CancellationTokenSource();
         var services = new ServiceCollection();
         services.AddScoped(_ => indexMock.Object);
@@ -55,6 +62,7 @@ public class PokemonPrefetchHostedServiceTests {
         var sut = new PokemonPrefetchHostedService(
             provider,
             lifetimeMock.Object,
+            warmupState,
             NullLogger<PokemonPrefetchHostedService>.Instance);
 
         await sut.StartAsync(CancellationToken.None);
@@ -62,6 +70,7 @@ public class PokemonPrefetchHostedServiceTests {
         await Task.Delay(50);
 
         indexMock.Verify(s => s.WarmupAsync(It.IsAny<CancellationToken>()), Times.Once);
+        warmupState.IsComplete.Should().BeFalse();
     }
 
     [Fact]
@@ -74,6 +83,7 @@ public class PokemonPrefetchHostedServiceTests {
         var sut = new PokemonPrefetchHostedService(
             provider,
             lifetimeMock.Object,
+            new WarmupState(),
             NullLogger<PokemonPrefetchHostedService>.Instance);
 
         await sut.StopAsync(CancellationToken.None);

@@ -194,12 +194,106 @@ GET /api/filters/abilities?search=bl&page=1&pageSize=50
 
 Selecting a dropdown value sends the slug to the search endpoint, e.g. `GET /api/pokemon?type=fire` or `GET /api/pokemon?ability=blaze`.
 
+### Bootstrap (initial page load)
+
+Single call for **filter metadata** and the **total Pokémon catalog count** — not the Pokémon cards themselves. Cards are always loaded through `/api/pokemon` (same path for page 1, page 2, and so on).
+
+```http
+GET /api/ready
+GET /api/bootstrap?abilityPageSize=50
+GET /api/pokemon?page=1
+```
+
+| Step | Endpoint | Purpose |
+|------|----------|---------|
+| 1 | `GET /api/ready` | Frontend polls until startup warmup finished (`200`) or times out |
+| 2 | `GET /api/bootstrap` | Types, generations, abilities page 1, `pokemonTotalCount` |
+| 3 | `GET /api/pokemon?page=1` | First page of cards (24 items, fixed server-side page size) |
+
+`GET /api/ready` returns `200` when startup warmup finished, `503` while still prefetching.
+
+**Why keep `BootstrapDto`?** It still saves round-trips on first paint: one request for three filter lists + abilities page 1 + catalog count, instead of four separate `GET /api/filters/*` calls plus a count query.
+
+**Response shape:**
+
+```json
+{
+  "types": [{ "id": 0, "name": "fire", "displayName": "Fire" }],
+  "generations": [{ "id": 1, "name": "generation-i", "displayName": "Generation I" }],
+  "abilities": {
+    "items": [{ "id": 1, "name": "stench", "displayName": "Stench" }],
+    "page": 1,
+    "pageSize": 50,
+    "totalCount": 367,
+    "totalPages": 8
+  },
+  "pokemonTotalCount": 1025
+}
+```
+
+`pokemonTotalCount` lets the UI compute `totalPages` immediately (`ceil(1025 ÷ 24) = 43`) before the user navigates. Pokémon **items** are not in bootstrap — they come from `/api/pokemon`.
+
+### Bootstrap, prefetch & page loading (code map)
+
+There are **two different mechanisms**: (A) **startup prefetch** on the API, and (B) **on-demand pagination** when the user clicks Next. There is **no background prefetch of pages 2, 3, …** today.
+
+#### A. Startup prefetch (API warmup, before traffic)
+
+Runs once after the host starts. Goal: warm Redis/memory cache so the first real user requests are fast.
+
+| What | Where in code |
+|------|----------------|
+| Orchestrator | `src/Kota.Pokedex.Infrastructure/Services/PokemonPrefetchHostedService.cs` |
+| Pokémon name index + generation map | `PokemonIndexService.WarmupAsync()` |
+| Filter lists (types, generations, abilities) | `FilterMetadataService.WarmupAsync()` |
+| First-page card details (24 Pokémon) | `PokemonIndexService.PrefetchFirstPageCardDetailsAsync()` |
+| Mark ready / health | `IWarmupState` → `WarmupHealthCheck` → `/health/ready` and `GET /api/ready` |
+| DI registration | `src/Kota.Pokedex.Infrastructure/DependencyInjection.cs` |
+| K8s readiness probe | `infra/kubernetes/api-deployment.yaml` → `/health/ready` |
+
+```
+ApplicationStarted
+  → PokemonPrefetchHostedService.WarmupAsync()
+      → index + filter metadata + prefetch 24 card details (PokeAPI → cache)
+      → IWarmupState.MarkComplete()
+  → /health/ready = healthy
+```
+
+#### B. Page loading (browser, on demand)
+
+| What | Where in code |
+|------|----------------|
+| Poll ready, then bootstrap metadata | `src/web/src/app/core/services/bootstrap-api.service.ts` |
+| Initial load: bootstrap → page 1 | `PokedexPageComponent.loadInitial()` |
+| Next/Previous + filter changes | `PokedexPageComponent.setupPageLoader()` → `PokemonApiService.search()` |
+| Fixed page size (24) | `src/Kota.Pokedex.Core/Constants/PokemonPagination.cs` (API) · `src/web/src/app/core/constants/pokemon-pagination.constants.ts` (web) |
+| Catalog count query (bootstrap) | `GetPokemonCatalogCountQueryHandler.cs` |
+| Paginated search (all pages) | `SearchPokemonQueryHandler.cs` |
+
+```
+Browser
+  → poll GET /api/ready
+  → GET /api/bootstrap          (metadata + pokemonTotalCount)
+  → GET /api/pokemon?page=1     (24 cards)
+User clicks Next
+  → GET /api/pokemon?page=2     (on demand — not prefetched in background)
+```
+
+**Not implemented:** background loading of pages 2+ (e.g. prefetch next page while user reads page 1). That is listed under [Future Improvements](#future-improvements). Pages 2+ hydrate card details on first visit, then stay cached.
+
 ### Health checks
 
 ```http
 GET /health
+GET /health/ready
 GET /alive
 ```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/health` | Liveness — process is running |
+| `/health/ready` | Readiness — startup warmup finished (index, filters, first-page card prefetch) |
+| `/alive` | Minimal alive check |
 
 ### Swagger UI (API landing page)
 
@@ -389,9 +483,12 @@ PokeAPI removed hard rate limits in 2018, but fair use policy still applies. Cac
 | Pokemon name index | ~13 (`limit=100`) | PokeAPI has no text search — required for `?search=` |
 | Types list | ~1 | Dropdown populated instantly on first open |
 | Generations list | ~1 | Dropdown populated instantly on first open |
-| Abilities list | ~4 | Dropdown shows first page immediately without typing |
+| Abilities list | ~4 | First page + `totalCount` for paginated dropdown |
+| First-page card details | ~24 (default) | Types, abilities, generation on cards without per-row hydration on first paint |
 
-Managed by `PokemonIndexService` (pokemon data) and `FilterMetadataService` (dropdown lists).
+When warmup completes, `IWarmupState.MarkComplete()` flips `/health/ready` to healthy so Kubernetes does not route traffic to a cold pod.
+
+Managed by `PokemonIndexService` (pokemon data) and `FilterMetadataService` (dropdown lists). See [Later Changes](#later-changes) for the bootstrap endpoint and frontend impact.
 
 **Other prefetch strategies for scale:**
 
@@ -530,9 +627,9 @@ The frontend (`src/web/`) is an Angular standalone SPA that calls the backend AP
 | Type badges | `types[]` with type-colored pills |
 | Ability + Generation | **Abilities** label + capsules; generation as *GEN I* (italic grey) under name/id |
 
-**Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))` and a `ResizeObserver` computes `pageSize` from the visible grid area so each page fills the viewport with as many cards as fit (6–100).
+**Layout:** Horizontal card — round image on the left, attributes on the right. The grid uses `repeat(auto-fill, minmax(260px, 1fr))`. **`pageSize` is fixed at 24** (aligned with API startup prefetch). `totalPages` is computed client-side from `totalCount ÷ pageSize` and only `totalCount` updates when filters change — not on every page navigation.
 
-**Filters:** Types and generations load once from `/api/filters/*`. Abilities are paginated on the API (~367 total, max 100 per page) but the frontend **fetches all pages** on load and on search so the dropdown is never limited to A–C only.
+**Filters:** Types and generations load from `/api/bootstrap` on first paint. Abilities use the first page from bootstrap (`totalCount` / `totalPages` for pagination); typing in the ability dropdown calls `/api/filters/abilities?search=…` for typeahead.
 
 **Why `spriteUrl` not official artwork:** Sprites are already on every index entry — no extra PokeAPI detail call per card. Faster first paint and simpler backend; artwork can be added later via detail hydration if needed.
 
@@ -597,6 +694,40 @@ For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: si
 
 ---
 
+## Later Changes
+
+### Why this was done
+
+The first webpage load was slow after deploying or restarting the API — not because of Angular itself, but due to a **cold cache** and the number of separate requests the frontend used to make:
+
+1. **Many round-trips** — types, generations, abilities (previously fetching all ~367 abilities), and the first Pokémon page were separate `GET` requests.
+2. **Per-card hydration** — each Pokémon card needed a detail call for types, abilities, and generation; on the first search, no card payload was cached yet.
+3. **Cold pod in K8s** — when the API had just started, it was still fetching from PokeAPI while users were already loading the page.
+
+**Goal:** a single **bootstrap request** on the frontend, prefetch **only the first page** (not the full catalog), but include **`totalCount` / `totalPages`** immediately so the UI knows how many pages exist — and have the load balancer wait until the pod is **ready** before routing traffic.
+
+### What changed
+
+| Layer | Change |
+|-------|--------|
+| **API bootstrap** | `GET /api/bootstrap` — filter metadata + `pokemonTotalCount` only (no Pokémon items) |
+| **API search** | `GET /api/pokemon` — all pages; fixed `CatalogPageSize = 24` (client `pageSize` ignored) |
+| **Warmup** | `PrefetchFirstPageCardDetailsAsync(24)` — pre-hydrate first 24 cards into cache at startup |
+| **Readiness** | `IWarmupState` + `WarmupHealthCheck` → `/health/ready` + `GET /api/ready`; K8s readiness probe |
+| **Frontend** | Poll `/api/ready` → bootstrap → `/api/pokemon?page=1`; Next uses same search endpoint; `catalogTotalCount` locked during pagination |
+
+**Flow after the change:**
+
+```
+Pod start → warmup (index + filters + prefetch 24 cards) → /health/ready = healthy
+Browser   → /api/ready → /api/bootstrap → /api/pokemon?page=1
+Next page → /api/pokemon?page=2 (on demand, not background-prefetched)
+```
+
+Redis init-container / retry logic was intentionally **not** included — the Skaffold setup stays simple; only shared Redis cache in K8s.
+
+---
+
 ## Future Improvements
 
 - **SQL Server (or PostgreSQL) instead of SQLite** — prerequisite for **multiple API pods**; also better ops tooling and concurrent collection writes at scale. For this take-home (single replica, local Skaffold), SQLite remains sufficient.
@@ -605,6 +736,7 @@ For this take-home, **SQLite + 1 API pod + Redis** is a deliberate trade-off: si
 - Expand integration tests with `WireMock` for richer PokeAPI scenarios beyond current fakes
 - Response compression (`Brotli`) for large filter result sets
 - Background cache refresh job instead of startup-only warmup
+- **Background prefetch of next Pokémon page** while user views current page (pages 2+ load on demand today)
 - Official artwork hydration (`ArtworkUrl`) as optional upgrade over sprites
 - Precomputed filter intersection indexes for hot combinations (type + generation)
 

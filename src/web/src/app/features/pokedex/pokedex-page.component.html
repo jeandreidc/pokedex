@@ -15,9 +15,9 @@
     }
     @if (results && !loading) {
       <span class="status-pill">
-        {{ results.totalCount }} result{{ results.totalCount === 1 ? '' : 's' }}
-        · page {{ results.page }} / {{ results.totalPages || 1 }}
-        · {{ pageSize }} per page
+        {{ catalogTotalCount }} result{{ catalogTotalCount === 1 ? '' : 's' }}
+        · page {{ page }} / {{ totalPages || 1 }}
+        · showing {{ visibleCount }} / {{ pageSize }}
       </span>
     }
     @if (error) {
@@ -25,7 +25,7 @@
     }
   </div>
 
-  <div #gridHost class="pokedex__grid">
+  <div class="pokedex__grid">
     @if (results?.items?.length) {
       @for (pokemon of results!.items; track pokemon.id) {
         <app-pokemon-card
@@ -38,11 +38,11 @@
     }
   </div>
 
-  @if (results && results.totalPages > 1) {
+  @if (results && totalPages > 1) {
     <nav class="pokedex__pager" aria-label="Pagination">
       <button type="button" [disabled]="page <= 1 || loading" (click)="goToPage(page - 1)">Previous</button>
-      <span>Page {{ page }} of {{ results.totalPages }}</span>
-      <button type="button" [disabled]="page >= results.totalPages || loading" (click)="goToPage(page + 1)">
+      <span>Page {{ page }} of {{ totalPages }}</span>
+      <button type="button" [disabled]="page >= totalPages || loading" (click)="goToPage(page + 1)">
         Next
       </button>
     </nav>

@@ -35,6 +35,18 @@ public class PokemonIndexService : IPokemonIndexService {
         _logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
     }
 
+    public async Task PrefetchFirstPageCardDetailsAsync(int pageSize, CancellationToken cancellationToken = default) {
+        var index = await GetIndexAsync(cancellationToken);
+        var ids = index.OrderBy(e => e.Id).Take(pageSize).Select(e => e.Id).ToList();
+        if (ids.Count == 0) {
+            return;
+        }
+
+        _logger.LogInformation("Prefetching card details for first page ({Count} Pokémon)", ids.Count);
+        var tasks = ids.Select(id => GetPokemonCardDetailsAsync(id, cancellationToken));
+        await Task.WhenAll(tasks);
+    }
+
     public async Task<IReadOnlyList<PokemonIndexEntry>> GetIndexAsync(CancellationToken cancellationToken = default) {
         var cached = await _cacheService.GetAsync<List<PokemonIndexEntry>>(CacheKeys.PokemonIndex, cancellationToken);
         if (cached is not null) {
@@ -148,6 +160,9 @@ public class PokemonIndexService : IPokemonIndexService {
         await _cacheService.SetAsync(key, cardDetails, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
         return cardDetails;
     }
+
+    public Task<PokemonCardDetails?> GetCachedCardDetailsAsync(int id, CancellationToken cancellationToken = default) =>
+        _cacheService.GetAsync<PokemonCardDetails>(CacheKeys.PokemonCard(id), cancellationToken);
 
     private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken) {
         var cached = await _cacheService.GetAsync<Dictionary<int, string>>(CacheKeys.PokemonGenerationMap, cancellationToken);
