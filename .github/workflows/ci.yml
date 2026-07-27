@@ -32,3 +32,26 @@ jobs:
 
       - name: Integration tests
         run: dotnet test tests/Kota.Pokedex.Tests.Integration/Kota.Pokedex.Tests.Integration.csproj --no-build -c Release --verbosity normal
+
+  frontend:
+    name: Angular production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build -- --configuration production
