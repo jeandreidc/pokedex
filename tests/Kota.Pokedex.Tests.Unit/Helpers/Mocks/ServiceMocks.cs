@@ -32,13 +32,18 @@ public static class PokemonIndexServiceMock {
         mock.Setup(s => s.GetCachedCardDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => (PokemonCardDetails?)null);
 
+        mock.Setup(s => s.GetPokemonGenerationMapAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => PokemonIndexFixtures.AllEntries.ToDictionary(
+                e => e.Id,
+                e => e.Id <= 151 ? "Generation I" : "Generation II"));
+
         return mock;
     }
 
     private static PokemonCardDetails CardDetailsFor(int id) => new() {
         Types = TypesFor(id).ToList(),
         Abilities = [AbilityFor(id)],
-        Generation = id <= 151 ? "I" : "II"
+        Generation = id <= 151 ? "Generation I" : "Generation II"
     };
 
     private static IReadOnlyList<string> TypesFor(int id) => id switch {

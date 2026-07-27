@@ -1,4 +1,5 @@
 using Kota.Pokedex.Core.Constants;
+using Kota.Pokedex.Core.Formatting;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Models;
 using Kota.Pokedex.Core.Models.PokeApi;
@@ -31,7 +32,7 @@ public class PokemonIndexService : IPokemonIndexService {
     public async Task WarmupAsync(CancellationToken cancellationToken = default) {
         _logger.LogInformation("Starting Pokemon index warmup");
         var index = await GetIndexAsync(cancellationToken);
-        await GetPokemonGenerationMapAsync(cancellationToken);
+        await GetPokemonGenerationMapInternalAsync(cancellationToken);
         _logger.LogInformation("Pokemon index warmup complete with {EntryCount} entries", index.Count);
     }
 
@@ -134,7 +135,7 @@ public class PokemonIndexService : IPokemonIndexService {
             CacheKeys.PokemonCard(id),
             async ct => {
                 var detail = await _pokeApiClient.GetPokemonAsync(id.ToString(), ct);
-                var generationMap = await GetPokemonGenerationMapAsync(ct);
+                var generationMap = await GetPokemonGenerationMapInternalAsync(ct);
 
                 return new PokemonCardDetails {
                     Types = detail.Types
@@ -154,7 +155,10 @@ public class PokemonIndexService : IPokemonIndexService {
     public Task<PokemonCardDetails?> GetCachedCardDetailsAsync(int id, CancellationToken cancellationToken = default) =>
         _cacheService.GetAsync<PokemonCardDetails>(CacheKeys.PokemonCard(id), cancellationToken);
 
-    private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken) {
+    public Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken = default) =>
+        GetPokemonGenerationMapInternalAsync(cancellationToken);
+
+    private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapInternalAsync(CancellationToken cancellationToken) {
         var map = await _cacheService.GetOrCreateAsync(
             CacheKeys.PokemonGenerationMap,
             async ct => {
@@ -168,7 +172,7 @@ public class PokemonIndexService : IPokemonIndexService {
                     page = await _pokeApiClient.GetGenerationListAsync(100, offset, ct);
                     foreach (var generation in page.Results) {
                         var detail = await _pokeApiClient.GetGenerationAsync(generation.Name, ct);
-                        var displayName = FormatGenerationName(detail.Name);
+                        var displayName = GenerationFormatting.ToDisplayName(detail.Name);
                         foreach (var species in detail.PokemonSpecies) {
                             if (nameToId.TryGetValue(species.Name, out var pokemonId)) {
                                 result[pokemonId] = displayName;
@@ -213,14 +217,6 @@ public class PokemonIndexService : IPokemonIndexService {
     private static string FormatDisplayName(string name) =>
         string.Join(' ', name.Split('-').Select(w =>
             w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
-
-    private static string FormatGenerationName(string name) {
-        var roman = name.Replace("generation-", "", StringComparison.OrdinalIgnoreCase).ToUpperInvariant();
-        return roman switch {
-            "I" or "II" or "III" or "IV" or "V" or "VI" or "VII" or "VIII" or "IX" => roman,
-            _ => name
-        };
-    }
 
     private static int ExtractIdFromUrl(string url) {
         var segments = url.TrimEnd('/').Split('/');

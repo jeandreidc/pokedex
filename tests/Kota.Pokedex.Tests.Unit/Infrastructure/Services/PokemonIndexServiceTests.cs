@@ -104,7 +104,7 @@ public class PokemonIndexServiceTests {
 
         first.Types.Should().Contain("electric");
         first.Abilities.Should().Contain("Static");
-        first.Generation.Should().Be("I");
+        first.Generation.Should().Be("Generation I");
         second.Should().BeEquivalentTo(first);
         _pokeApi.Verify(c => c.GetPokemonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _distributedCache.Store.Should().ContainKey(CacheKeys.PokemonCard(25));

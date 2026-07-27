@@ -1,4 +1,5 @@
 using Kota.Pokedex.Core.Constants;
+using Kota.Pokedex.Core.Formatting;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Models.PokeApi;
 using Kota.Pokedex.Core.Options;
@@ -72,7 +73,7 @@ public class FilterMetadataService : IFilterMetadataService {
         return results.Select((r, i) => new FilterOption(
             ExtractIdFromUrl(r.Url),
             r.Name,
-            FormatGenerationName(r.Name))).ToList();
+            GenerationFormatting.ToDisplayName(r.Name))).ToList();
     }
 
     private static async Task<List<PokeApiNamedResource>> LoadAllPagesAsync(
@@ -99,20 +100,4 @@ public class FilterMetadataService : IFilterMetadataService {
     private static string FormatDisplayName(string name) =>
         string.Join(' ', name.Split('-').Select(w =>
             w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
-
-    private static string FormatGenerationName(string name) {
-        var roman = name.Replace("generation-", "", StringComparison.OrdinalIgnoreCase).ToUpperInvariant();
-        return roman switch {
-            "I" => "Generation I",
-            "II" => "Generation II",
-            "III" => "Generation III",
-            "IV" => "Generation IV",
-            "V" => "Generation V",
-            "VI" => "Generation VI",
-            "VII" => "Generation VII",
-            "VIII" => "Generation VIII",
-            "IX" => "Generation IX",
-            _ => name
-        };
-    }
 }
