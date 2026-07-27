@@ -52,8 +52,14 @@ public static class DependencyInjection {
         services.AddSingleton<IFilterMetadataService, FilterMetadataService>();
         services.AddHostedService<PokemonPrefetchHostedService>();
 
-        services.AddHealthChecks()
-            .AddCheck<WarmupHealthCheck>("warmup", tags: ["ready"]);
+        // P1.6: readiness = warmup + DB (+ Redis when configured)
+        var healthChecks = services.AddHealthChecks()
+            .AddCheck<WarmupHealthCheck>("warmup", tags: ["ready"])
+            .AddCheck<SqliteDbHealthCheck>("sqlite", tags: ["ready"]);
+
+        if (cacheProvider.Equals("Redis", StringComparison.OrdinalIgnoreCase)) {
+            healthChecks.AddCheck<RedisCacheHealthCheck>("redis", tags: ["ready"]);
+        }
 
         return services;
     }
