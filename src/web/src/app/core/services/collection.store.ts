@@ -21,6 +21,7 @@ export class CollectionStore {
   readonly sidebarOpen = this._sidebarOpen.asReadonly();
   readonly activeTab = this._activeTab.asReadonly();
   readonly stats = this._stats.asReadonly();
+  readonly entries = this._entries.asReadonly();
 
   readonly favorites = computed(() =>
     [...this._entries().values()].filter(e => e.isFavorite).sort((a, b) => a.pokemonId - b.pokemonId)
@@ -74,12 +75,16 @@ export class CollectionStore {
     this._sidebarOpen.set(false);
   }
 
-  getState(pokemonId: number): CollectionEntryState {
+  stateFor(pokemonId: number): CollectionEntryState {
     const entry = this._entries().get(pokemonId);
     return {
       isCaught: entry?.isCaught ?? false,
       isFavorite: entry?.isFavorite ?? false
     };
+  }
+
+  getState(pokemonId: number): CollectionEntryState {
+    return this.stateFor(pokemonId);
   }
 
   openSidebar(tab: CollectionTab): void {

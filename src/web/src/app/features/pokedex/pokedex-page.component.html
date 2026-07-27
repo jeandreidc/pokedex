@@ -28,10 +28,7 @@
   <div class="pokedex__grid">
     @if (results?.items?.length) {
       @for (pokemon of results!.items; track pokemon.id) {
-        <app-pokemon-card
-          [pokemon]="pokemon"
-          [collectionState]="getCollectionState(pokemon.id)"
-        />
+        <app-pokemon-card [pokemon]="pokemon" />
       }
     } @else if (!loading && !error) {
       <div class="pokedex__empty">No Pokémon match the current filters.</div>

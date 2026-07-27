@@ -12,7 +12,6 @@ import {
 import { POKEMON_PAGE_SIZE } from '../../core/constants/pokemon-pagination.constants';
 import { ActiveFilters, FilterOption, PagedResult, PokemonSummary } from '../../core/models/api.models';
 import { BootstrapApiService } from '../../core/services/bootstrap-api.service';
-import { CollectionStore } from '../../core/services/collection.store';
 import { FilterApiService } from '../../core/services/filter-api.service';
 import { PokemonApiService } from '../../core/services/pokemon-api.service';
 import { computeTotalPages } from '../../core/utils/pokemon.utils';
@@ -34,7 +33,6 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
   private readonly bootstrapApi = inject(BootstrapApiService);
   private readonly pokemonApi = inject(PokemonApiService);
   private readonly filterApi = inject(FilterApiService);
-  private readonly collectionStore = inject(CollectionStore);
   private readonly destroy$ = new Subject<void>();
   private readonly filterChange$ = new Subject<void>();
   private readonly abilitySearch$ = new Subject<string>();
@@ -231,10 +229,6 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
   private applyPageResult(result: PagedResult<PokemonSummary>, page: number): void {
     this.results = result;
     this.page = page;
-  }
-
-  getCollectionState(pokemonId: number) {
-    return this.collectionStore.getState(pokemonId);
   }
 
   private buildActiveFilters(): ActiveFilters {
