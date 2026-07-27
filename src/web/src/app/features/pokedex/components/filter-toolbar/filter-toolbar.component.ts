@@ -22,10 +22,16 @@ export class FilterToolbarComponent {
   @Input() abilities: FilterOption[] = [];
   @Input() loadingAbilities = false;
 
-  @Input() value: FilterToolbarValue = { search: '', type: '', ability: '', generation: '' };
+  @Input()
+  set value(next: FilterToolbarValue) {
+    this.draft = { ...next };
+    this.lastEmittedSnapshot = JSON.stringify(this.draft);
+  }
+
   @Output() valueChange = new EventEmitter<FilterToolbarValue>();
   @Output() abilitySearch = new EventEmitter<string>();
 
+  draft: FilterToolbarValue = { search: '', type: '', ability: '', generation: '' };
   abilityQuery = '';
   private lastEmittedSnapshot = '';
 
@@ -43,22 +49,23 @@ export class FilterToolbarComponent {
 
   clearFilters(): void {
     this.abilityQuery = '';
+    this.draft = { search: '', type: '', ability: '', generation: '' };
     this.lastEmittedSnapshot = '';
-    this.valueChange.emit({ search: '', type: '', ability: '', generation: '' });
+    this.valueChange.emit({ ...this.draft });
     this.abilitySearch.emit('');
   }
 
   get hasActiveFilters(): boolean {
-    return !!(this.value.search || this.value.type || this.value.ability || this.value.generation);
+    return !!(this.draft.search || this.draft.type || this.draft.ability || this.draft.generation);
   }
 
   private emitIfChanged(): void {
-    const snapshot = JSON.stringify(this.value);
+    const snapshot = JSON.stringify(this.draft);
     if (snapshot === this.lastEmittedSnapshot) {
       return;
     }
 
     this.lastEmittedSnapshot = snapshot;
-    this.valueChange.emit({ ...this.value });
+    this.valueChange.emit({ ...this.draft });
   }
 }
