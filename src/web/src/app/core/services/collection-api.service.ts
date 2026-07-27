@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -14,11 +14,8 @@ export class CollectionApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getCollection(favoritesOnly?: boolean, caughtOnly?: boolean): Observable<CollectionEntry[]> {
-    let params = new HttpParams();
-    if (favoritesOnly) params = params.set('favoritesOnly', 'true');
-    if (caughtOnly) params = params.set('caughtOnly', 'true');
-    return this.http.get<CollectionEntry[]>(this.baseUrl, { params });
+  getCollection(): Observable<CollectionEntry[]> {
+    return this.http.get<CollectionEntry[]>(this.baseUrl);
   }
 
   getStats(): Observable<CollectionStats> {
@@ -27,9 +24,5 @@ export class CollectionApiService {
 
   updateEntry(pokemonId: number, body: UpdateCollectionEntryRequest): Observable<CollectionEntry> {
     return this.http.put<CollectionEntry>(`${this.baseUrl}/${pokemonId}`, body);
-  }
-
-  removeEntry(pokemonId: number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/${pokemonId}`);
   }
 }
