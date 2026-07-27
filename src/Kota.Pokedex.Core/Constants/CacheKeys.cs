@@ -2,6 +2,7 @@ namespace Kota.Pokedex.Core.Constants;
 
 public static class CacheKeys {
     public const string PokemonIndex = "pokeapi:pokemon-index";
+    public const string PokemonIndexMap = "pokeapi:pokemon-index-map";
     public const string FilterTypes = "pokeapi:filters:types";
     public const string FilterAbilities = "pokeapi:filters:abilities";
     public const string FilterGenerations = "pokeapi:filters:generations";

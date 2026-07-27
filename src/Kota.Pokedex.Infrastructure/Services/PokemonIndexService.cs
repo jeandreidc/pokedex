@@ -72,6 +72,11 @@ public class PokemonIndexService : IPokemonIndexService {
             entries,
             TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
             cancellationToken);
+        await _cacheService.SetAsync(
+            CacheKeys.PokemonIndexMap,
+            entries.ToDictionary(e => e.Id),
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            cancellationToken);
 
         return entries;
     }
@@ -131,8 +136,26 @@ public class PokemonIndexService : IPokemonIndexService {
     }
 
     public async Task<PokemonIndexEntry?> GetEntryAsync(int id, CancellationToken cancellationToken = default) {
+        var map = await GetIndexMapAsync(cancellationToken);
+        return map.TryGetValue(id, out var entry) ? entry : null;
+    }
+
+    private async Task<IReadOnlyDictionary<int, PokemonIndexEntry>> GetIndexMapAsync(CancellationToken cancellationToken) {
+        var cached = await _cacheService.GetAsync<Dictionary<int, PokemonIndexEntry>>(
+            CacheKeys.PokemonIndexMap,
+            cancellationToken);
+        if (cached is not null) {
+            return cached;
+        }
+
         var index = await GetIndexAsync(cancellationToken);
-        return index.FirstOrDefault(e => e.Id == id);
+        var map = index.ToDictionary(e => e.Id);
+        await _cacheService.SetAsync(
+            CacheKeys.PokemonIndexMap,
+            map,
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            cancellationToken);
+        return map;
     }
 
     public async Task<PokemonCardDetails> GetPokemonCardDetailsAsync(int id, CancellationToken cancellationToken = default) {
