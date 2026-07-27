@@ -40,11 +40,12 @@ public static class DependencyInjection {
             services.AddSingleton<ICacheService, MemoryCacheService>();
         }
 
-        services.AddHttpClient<IPokeApiClient, PokeApiClient>((sp, client) => {
+        services.AddHttpClient(PokeApiClient.HttpClientName, (sp, client) => {
             var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PokeApiOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl);
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+        services.AddSingleton<IPokeApiClient, PokeApiClient>();
 
         services.AddSingleton<IWarmupState, WarmupState>();
         services.AddSingleton<IPokemonIndexService, PokemonIndexService>();

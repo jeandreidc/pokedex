@@ -10,18 +10,26 @@ using Microsoft.Extensions.Options;
 namespace Kota.Pokedex.Infrastructure.ExternalServices.PokeApi;
 
 public class PokeApiClient : IPokeApiClient {
+    public const string HttpClientName = "PokeApi";
+
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HttpClient _httpClient;
+    private static readonly object ThrottleLock = new();
+    private static SemaphoreSlim? _sharedThrottle;
+
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly SemaphoreSlim _throttle;
     private readonly ILogger<PokeApiClient> _logger;
 
-    public PokeApiClient(HttpClient httpClient, IOptions<PokeApiOptions> options, ILogger<PokeApiClient> logger) {
-        _httpClient = httpClient;
+    public PokeApiClient(
+        IHttpClientFactory httpClientFactory,
+        IOptions<PokeApiOptions> options,
+        ILogger<PokeApiClient> logger) {
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _throttle = new SemaphoreSlim(options.Value.MaxConcurrentRequests);
+        _throttle = GetOrCreateThrottle(options.Value.MaxConcurrentRequests);
     }
 
     public Task<PokeApiListResponse> GetPokemonListAsync(int limit, int offset, CancellationToken cancellationToken = default) =>
@@ -52,7 +60,8 @@ public class PokeApiClient : IPokeApiClient {
         await _throttle.WaitAsync(cancellationToken);
         try {
             _logger.LogDebug("PokeAPI GET {Path}", path);
-            using var response = await _httpClient.GetAsync(path, cancellationToken);
+            var httpClient = _httpClientFactory.CreateClient(HttpClientName);
+            using var response = await httpClient.GetAsync(path, cancellationToken);
 
             if (!response.IsSuccessStatusCode) {
                 throw new PokeApiException(
@@ -70,6 +79,16 @@ public class PokeApiClient : IPokeApiClient {
         }
         finally {
             _throttle.Release();
+        }
+    }
+
+    private static SemaphoreSlim GetOrCreateThrottle(int maxConcurrentRequests) {
+        if (_sharedThrottle is not null) {
+            return _sharedThrottle;
+        }
+
+        lock (ThrottleLock) {
+            return _sharedThrottle ??= new SemaphoreSlim(maxConcurrentRequests, maxConcurrentRequests);
         }
     }
 

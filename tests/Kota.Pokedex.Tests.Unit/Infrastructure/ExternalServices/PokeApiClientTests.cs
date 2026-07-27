@@ -15,8 +15,14 @@ public class PokeApiClientTests {
 
     public PokeApiClientTests() {
         _handler = new MockHttpMessageHandler(HandleRequest);
-        var client = new HttpClient(_handler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
-        _sut = new PokeApiClient(client, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
+        _sut = CreateClient(_handler);
+    }
+
+    private static PokeApiClient CreateClient(HttpMessageHandler handler) {
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(PokeApiClient.HttpClientName)).Returns(httpClient);
+        return new PokeApiClient(factory.Object, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
     }
 
     [Fact]
@@ -69,9 +75,7 @@ public class PokeApiClientTests {
 
     [Fact]
     public async Task GetAsync_ThrowsPokeApiException_OnFailure() {
-        var failingHandler = new MockHttpMessageHandler(_ => MockHttpMessageHandler.NotFound());
-        var client = new HttpClient(failingHandler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
-        var sut = new PokeApiClient(client, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
+        var sut = CreateClient(new MockHttpMessageHandler(_ => MockHttpMessageHandler.NotFound()));
 
         var act = () => sut.GetPokemonAsync("missing");
 
@@ -81,11 +85,9 @@ public class PokeApiClientTests {
 
     [Fact]
     public async Task GetAsync_ThrowsPokeApiException_WhenResponseBodyIsEmpty() {
-        var handler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) {
+        var sut = CreateClient(new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) {
             Content = new StringContent("null", Encoding.UTF8, "application/json")
-        });
-        var client = new HttpClient(handler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
-        var sut = new PokeApiClient(client, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
+        }));
 
         var act = () => sut.GetPokemonAsync("25");
 
@@ -95,16 +97,14 @@ public class PokeApiClientTests {
 
     [Fact]
     public async Task GetGenerationAsync_PassesThroughUnknownNumericId() {
-        var handler = new MockHttpMessageHandler(request => {
+        var sut = CreateClient(new MockHttpMessageHandler(request => {
             request.RequestUri!.AbsolutePath.Should().EndWith("/generation/99");
             return MockHttpMessageHandler.JsonResponse(new PokeApiGenerationDetail {
                 Id = 99,
                 Name = "generation-99",
                 PokemonSpecies = []
             });
-        });
-        var client = new HttpClient(handler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
-        var sut = new PokeApiClient(client, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
+        }));
 
         var result = await sut.GetGenerationAsync("99");
 

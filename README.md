@@ -284,16 +284,16 @@ User clicks Next
 ### Health checks
 
 ```http
+GET /alive
 GET /health
 GET /health/ready
-GET /alive
 ```
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/health` | Liveness — process is running |
-| `/health/ready` | Readiness — startup warmup finished (index, filters, first-page card prefetch) |
-| `/alive` | Minimal alive check |
+| `/alive` | Liveness — process up (`live` tag) |
+| `/health` | Aggregated health (includes warmup readiness) |
+| `/health/ready` | Readiness — startup prefetch complete (`ready` tag); used by K8s and mirrored by `GET /api/ready` |
 
 ### Swagger UI (API landing page)
 
@@ -412,7 +412,7 @@ When multiple filters are active, we **intersect** the candidate id sets, then a
 ```
 Kota.Pokedex/
 ├── src/          # Application source (Api, Core, Application, Infrastructure, web/)
-├── tests/        # Unit, integration, E2E test projects
+├── tests/        # Unit and integration test projects
 ├── infra/        # Deployment scaffolding (Docker, Skaffold, K8s)
 └── *.sln         # .NET solution (frontend managed separately via npm)
 ```
@@ -452,12 +452,11 @@ Implemented via `ICacheService` with two providers switchable by config:
 
 ### 8. IHttpClientFactory for PokeAPI calls
 
-All outbound HTTP uses a typed `HttpClient` registered via `IHttpClientFactory`:
+Outbound PokeAPI calls use a **named** `HttpClient` (`"PokeApi"`) via `IHttpClientFactory`, with `PokeApiClient` registered as a **Singleton** (safe for long-lived index/filter services):
 
-- **Connection pooling** — avoids socket exhaustion under load
-- **DNS refresh** — handled by the factory
+- **Connection pooling / DNS refresh** — factory-managed handlers, not a captive typed client
 - **Standard resilience handler** — retry + circuit breaker for transient failures
-- **Semaphore throttle** — max 5 concurrent outbound requests (configurable)
+- **Shared SemaphoreSlim** — one global outbound throttle (default max 5 concurrent), not per-client-instance
 
 Service Discovery is **not** applied to HttpClient defaults — it was removed because Aspire's service discovery incorrectly intercepted external PokeAPI URLs (`https://pokeapi.co`) as internal service names.
 
