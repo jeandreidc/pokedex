@@ -6,7 +6,7 @@ namespace Kota.Pokedex.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[EnableRateLimiting("api")]
+[DisableRateLimiting]
 public class ReadyController(IWarmupState warmupState) : ControllerBase {
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
