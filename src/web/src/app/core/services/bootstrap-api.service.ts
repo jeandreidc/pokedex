@@ -1,6 +1,17 @@
 import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, filter, map, of, race, switchMap, take, timer } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  filter,
+  map,
+  of,
+  race,
+  switchMap,
+  take,
+  throwError,
+  timer
+} from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BootstrapPayload } from '../models/api.models';
 import { normalizePagedResult } from '../utils/paged-result.utils';
@@ -44,7 +55,11 @@ export class BootstrapApiService {
       map(() => void 0)
     );
 
-    const timeout = timer(READY_TIMEOUT_MS).pipe(map(() => void 0));
+    const timeout = timer(READY_TIMEOUT_MS).pipe(
+      switchMap(() =>
+        throwError(() => new Error('API warmup timed out. The server is still not ready.'))
+      )
+    );
 
     return race(poll, timeout);
   }

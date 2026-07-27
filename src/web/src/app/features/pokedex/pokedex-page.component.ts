@@ -132,13 +132,16 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
           this.activeFilters = this.buildActiveFilters();
           this.loading = false;
         },
-        error: () => {
+        error: err => {
           if (generation !== this.loadGeneration) {
             return;
           }
 
           this.loading = false;
-          this.error = 'Failed to load Pokedex. Is the API running?';
+          const message = err instanceof Error ? err.message : '';
+          this.error = message.includes('warmup timed out')
+            ? 'API is still warming up. Please wait a moment and refresh.'
+            : 'Failed to load Pokedex. Is the API running?';
         }
       });
   }
