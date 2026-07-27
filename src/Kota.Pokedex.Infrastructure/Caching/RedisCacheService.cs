@@ -6,6 +6,10 @@ using Microsoft.Extensions.Options;
 
 namespace Kota.Pokedex.Infrastructure.Caching;
 
+/// <summary>
+/// Distributed cache — JSON serialization required for Redis wire format (P1.2).
+/// Single-flight via shared <see cref="CacheSingleFlight"/> (P1.1).
+/// </summary>
 public class RedisCacheService : ICacheService {
     private static readonly JsonSerializerOptions JsonOptions = new();
     private readonly IDistributedCache _distributedCache;
@@ -31,4 +35,17 @@ public class RedisCacheService : ICacheService {
 
     public Task RemoveAsync(string key, CancellationToken cancellationToken = default) =>
         _distributedCache.RemoveAsync(key, cancellationToken);
+
+    public Task<T> GetOrCreateAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        TimeSpan? expiry = null,
+        CancellationToken cancellationToken = default) =>
+        CacheSingleFlight.GetOrCreateAsync(
+            key,
+            ct => GetAsync<T>(key, ct),
+            (value, ttl, ct) => SetAsync(key, value, ttl, ct),
+            factory,
+            expiry,
+            cancellationToken);
 }

@@ -47,93 +47,70 @@ public class PokemonIndexService : IPokemonIndexService {
         await Task.WhenAll(tasks);
     }
 
-    public async Task<IReadOnlyList<PokemonIndexEntry>> GetIndexAsync(CancellationToken cancellationToken = default) {
-        var cached = await _cacheService.GetAsync<List<PokemonIndexEntry>>(CacheKeys.PokemonIndex, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var entries = new List<PokemonIndexEntry>();
-        var offset = 0;
-        PokeApiListResponse page;
-
-        do {
-            page = await _pokeApiClient.GetPokemonListAsync(_pokeApiOptions.PageFetchLimit, offset, cancellationToken);
-            entries.AddRange(page.Results.Select(r => new PokemonIndexEntry {
-                Id = ExtractIdFromUrl(r.Url),
-                Name = r.Name,
-                SpriteUrl = BuildSpriteUrl(ExtractIdFromUrl(r.Url))
-            }));
-            offset += _pokeApiOptions.PageFetchLimit;
-        } while (page.Next is not null);
-
-        await _cacheService.SetAsync(
+    public Task<IReadOnlyList<PokemonIndexEntry>> GetIndexAsync(CancellationToken cancellationToken = default) =>
+        GetOrCreateListAsync(
             CacheKeys.PokemonIndex,
-            entries,
-            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            async ct => {
+                var entries = new List<PokemonIndexEntry>();
+                var offset = 0;
+                PokeApiListResponse page;
+
+                do {
+                    page = await _pokeApiClient.GetPokemonListAsync(_pokeApiOptions.PageFetchLimit, offset, ct);
+                    entries.AddRange(page.Results.Select(r => new PokemonIndexEntry {
+                        Id = ExtractIdFromUrl(r.Url),
+                        Name = r.Name,
+                        SpriteUrl = BuildSpriteUrl(ExtractIdFromUrl(r.Url))
+                    }));
+                    offset += _pokeApiOptions.PageFetchLimit;
+                } while (page.Next is not null);
+
+                await _cacheService.SetAsync(
+                    CacheKeys.PokemonIndexMap,
+                    entries.ToDictionary(e => e.Id),
+                    TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+                    ct);
+
+                return entries;
+            },
             cancellationToken);
-        await _cacheService.SetAsync(
-            CacheKeys.PokemonIndexMap,
-            entries.ToDictionary(e => e.Id),
-            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+
+    public Task<IReadOnlySet<int>> GetPokemonIdsByTypeAsync(string type, CancellationToken cancellationToken = default) =>
+        GetOrCreateSetAsync(
+            CacheKeys.Type(type),
+            async ct => {
+                var detail = await _pokeApiClient.GetTypeAsync(type, ct);
+                return detail.Pokemon.Select(p => ExtractIdFromUrl(p.Pokemon.Url)).ToHashSet();
+            },
             cancellationToken);
 
-        return entries;
-    }
+    public Task<IReadOnlySet<int>> GetPokemonIdsByAbilityAsync(string ability, CancellationToken cancellationToken = default) =>
+        GetOrCreateSetAsync(
+            CacheKeys.Ability(ability),
+            async ct => {
+                var detail = await _pokeApiClient.GetAbilityAsync(ability, ct);
+                return detail.Pokemon.Select(p => ExtractIdFromUrl(p.Pokemon.Url)).ToHashSet();
+            },
+            cancellationToken);
 
-    public async Task<IReadOnlySet<int>> GetPokemonIdsByTypeAsync(string type, CancellationToken cancellationToken = default) {
-        var key = CacheKeys.Type(type);
-        var cached = await _cacheService.GetAsync<HashSet<int>>(key, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
+    public Task<IReadOnlySet<int>> GetPokemonIdsByGenerationAsync(string generation, CancellationToken cancellationToken = default) =>
+        GetOrCreateSetAsync(
+            CacheKeys.Generation(generation),
+            async ct => {
+                var detail = await _pokeApiClient.GetGenerationAsync(generation, ct);
+                var index = await GetIndexAsync(ct);
+                var nameToId = index.ToDictionary(e => e.Name, e => e.Id, StringComparer.OrdinalIgnoreCase);
 
-        var detail = await _pokeApiClient.GetTypeAsync(type, cancellationToken);
-        var ids = detail.Pokemon
-            .Select(p => ExtractIdFromUrl(p.Pokemon.Url))
-            .ToHashSet();
+                var ids = new HashSet<int>();
+                foreach (var species in detail.PokemonSpecies) {
+                    if (nameToId.TryGetValue(species.Name, out var id)) {
+                        ids.Add(id);
+                    }
+                }
 
-        await _cacheService.SetAsync(key, ids, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
-        return ids;
-    }
-
-    public async Task<IReadOnlySet<int>> GetPokemonIdsByAbilityAsync(string ability, CancellationToken cancellationToken = default) {
-        var key = CacheKeys.Ability(ability);
-        var cached = await _cacheService.GetAsync<HashSet<int>>(key, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var detail = await _pokeApiClient.GetAbilityAsync(ability, cancellationToken);
-        var ids = detail.Pokemon
-            .Select(p => ExtractIdFromUrl(p.Pokemon.Url))
-            .ToHashSet();
-
-        await _cacheService.SetAsync(key, ids, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
-        return ids;
-    }
-
-    public async Task<IReadOnlySet<int>> GetPokemonIdsByGenerationAsync(string generation, CancellationToken cancellationToken = default) {
-        var key = CacheKeys.Generation(generation);
-        var cached = await _cacheService.GetAsync<HashSet<int>>(key, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var detail = await _pokeApiClient.GetGenerationAsync(generation, cancellationToken);
-        var index = await GetIndexAsync(cancellationToken);
-        var nameToId = index.ToDictionary(e => e.Name, e => e.Id, StringComparer.OrdinalIgnoreCase);
-
-        var ids = new HashSet<int>();
-        foreach (var species in detail.PokemonSpecies) {
-            if (nameToId.TryGetValue(species.Name, out var id)) {
-                ids.Add(id);
-            }
-        }
-
-        await _cacheService.SetAsync(key, ids, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
-        return ids;
-    }
+                return ids;
+            },
+            cancellationToken);
 
     public async Task<PokemonIndexEntry?> GetEntryAsync(int id, CancellationToken cancellationToken = default) {
         var map = await GetIndexMapAsync(cancellationToken);
@@ -141,86 +118,96 @@ public class PokemonIndexService : IPokemonIndexService {
     }
 
     private async Task<IReadOnlyDictionary<int, PokemonIndexEntry>> GetIndexMapAsync(CancellationToken cancellationToken) {
-        var cached = await _cacheService.GetAsync<Dictionary<int, PokemonIndexEntry>>(
+        var map = await _cacheService.GetOrCreateAsync(
             CacheKeys.PokemonIndexMap,
-            cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var index = await GetIndexAsync(cancellationToken);
-        var map = index.ToDictionary(e => e.Id);
-        await _cacheService.SetAsync(
-            CacheKeys.PokemonIndexMap,
-            map,
+            async ct => {
+                var index = await GetIndexAsync(ct);
+                return index.ToDictionary(e => e.Id);
+            },
             TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
             cancellationToken);
         return map;
     }
 
-    public async Task<PokemonCardDetails> GetPokemonCardDetailsAsync(int id, CancellationToken cancellationToken = default) {
-        var key = CacheKeys.PokemonCard(id);
-        var cached = await _cacheService.GetAsync<PokemonCardDetails>(key, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
+    public Task<PokemonCardDetails> GetPokemonCardDetailsAsync(int id, CancellationToken cancellationToken = default) =>
+        _cacheService.GetOrCreateAsync(
+            CacheKeys.PokemonCard(id),
+            async ct => {
+                var detail = await _pokeApiClient.GetPokemonAsync(id.ToString(), ct);
+                var generationMap = await GetPokemonGenerationMapAsync(ct);
 
-        var detail = await _pokeApiClient.GetPokemonAsync(id.ToString(), cancellationToken);
-        var generationMap = await GetPokemonGenerationMapAsync(cancellationToken);
-
-        var cardDetails = new PokemonCardDetails {
-            Types = detail.Types
-                .OrderBy(t => t.Slot)
-                .Select(t => t.Type.Name)
-                .ToList(),
-            Abilities = detail.Abilities
-                .OrderBy(a => a.Slot)
-                .Select(a => FormatDisplayName(a.Ability.Name))
-                .ToList(),
-            Generation = generationMap.TryGetValue(id, out var generation) ? generation : null
-        };
-
-        await _cacheService.SetAsync(key, cardDetails, TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes), cancellationToken);
-        return cardDetails;
-    }
+                return new PokemonCardDetails {
+                    Types = detail.Types
+                        .OrderBy(t => t.Slot)
+                        .Select(t => t.Type.Name)
+                        .ToList(),
+                    Abilities = detail.Abilities
+                        .OrderBy(a => a.Slot)
+                        .Select(a => FormatDisplayName(a.Ability.Name))
+                        .ToList(),
+                    Generation = generationMap.TryGetValue(id, out var generation) ? generation : null
+                };
+            },
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            cancellationToken);
 
     public Task<PokemonCardDetails?> GetCachedCardDetailsAsync(int id, CancellationToken cancellationToken = default) =>
         _cacheService.GetAsync<PokemonCardDetails>(CacheKeys.PokemonCard(id), cancellationToken);
 
     private async Task<IReadOnlyDictionary<int, string>> GetPokemonGenerationMapAsync(CancellationToken cancellationToken) {
-        var cached = await _cacheService.GetAsync<Dictionary<int, string>>(CacheKeys.PokemonGenerationMap, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var index = await GetIndexAsync(cancellationToken);
-        var nameToId = index.ToDictionary(e => e.Name, e => e.Id, StringComparer.OrdinalIgnoreCase);
-        var map = new Dictionary<int, string>();
-        var offset = 0;
-        PokeApiListResponse page;
-
-        do {
-            page = await _pokeApiClient.GetGenerationListAsync(100, offset, cancellationToken);
-            foreach (var generation in page.Results) {
-                var detail = await _pokeApiClient.GetGenerationAsync(generation.Name, cancellationToken);
-                var displayName = FormatGenerationName(detail.Name);
-                foreach (var species in detail.PokemonSpecies) {
-                    if (nameToId.TryGetValue(species.Name, out var pokemonId)) {
-                        map[pokemonId] = displayName;
-                    }
-                }
-            }
-
-            offset += 100;
-        } while (page.Next is not null);
-
-        await _cacheService.SetAsync(
+        var map = await _cacheService.GetOrCreateAsync(
             CacheKeys.PokemonGenerationMap,
-            map,
+            async ct => {
+                var index = await GetIndexAsync(ct);
+                var nameToId = index.ToDictionary(e => e.Name, e => e.Id, StringComparer.OrdinalIgnoreCase);
+                var result = new Dictionary<int, string>();
+                var offset = 0;
+                PokeApiListResponse page;
+
+                do {
+                    page = await _pokeApiClient.GetGenerationListAsync(100, offset, ct);
+                    foreach (var generation in page.Results) {
+                        var detail = await _pokeApiClient.GetGenerationAsync(generation.Name, ct);
+                        var displayName = FormatGenerationName(detail.Name);
+                        foreach (var species in detail.PokemonSpecies) {
+                            if (nameToId.TryGetValue(species.Name, out var pokemonId)) {
+                                result[pokemonId] = displayName;
+                            }
+                        }
+                    }
+
+                    offset += 100;
+                } while (page.Next is not null);
+
+                return result;
+            },
             TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes * 7),
             cancellationToken);
-
         return map;
+    }
+
+    private async Task<IReadOnlyList<PokemonIndexEntry>> GetOrCreateListAsync(
+        string key,
+        Func<CancellationToken, Task<List<PokemonIndexEntry>>> factory,
+        CancellationToken cancellationToken) {
+        var list = await _cacheService.GetOrCreateAsync(
+            key,
+            factory,
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            cancellationToken);
+        return list;
+    }
+
+    private async Task<IReadOnlySet<int>> GetOrCreateSetAsync(
+        string key,
+        Func<CancellationToken, Task<HashSet<int>>> factory,
+        CancellationToken cancellationToken) {
+        var set = await _cacheService.GetOrCreateAsync(
+            key,
+            factory,
+            TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes),
+            cancellationToken);
+        return set;
     }
 
     private static string FormatDisplayName(string name) =>

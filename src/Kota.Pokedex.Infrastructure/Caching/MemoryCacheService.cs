@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Options;
 using Microsoft.Extensions.Caching.Memory;
@@ -6,8 +5,10 @@ using Microsoft.Extensions.Options;
 
 namespace Kota.Pokedex.Infrastructure.Caching;
 
+/// <summary>
+/// In-process cache storing object graphs directly (P1.2) — no JSON round-trip.
+/// </summary>
 public class MemoryCacheService : ICacheService {
-    private static readonly JsonSerializerOptions JsonOptions = new();
     private readonly IMemoryCache _memoryCache;
     private readonly CacheOptions _options;
 
@@ -17,8 +18,8 @@ public class MemoryCacheService : ICacheService {
     }
 
     public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) {
-        if (_memoryCache.TryGetValue(key, out byte[]? bytes) && bytes is not null) {
-            return Task.FromResult(JsonSerializer.Deserialize<T>(bytes, JsonOptions));
+        if (_memoryCache.TryGetValue(key, out T? value)) {
+            return Task.FromResult(value);
         }
 
         return Task.FromResult<T?>(default);
@@ -26,8 +27,7 @@ public class MemoryCacheService : ICacheService {
 
     public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null, CancellationToken cancellationToken = default) {
         var ttl = expiry ?? TimeSpan.FromMinutes(_options.DefaultTtlMinutes);
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
-        _memoryCache.Set(key, bytes, ttl);
+        _memoryCache.Set(key, value, ttl);
         return Task.CompletedTask;
     }
 
@@ -35,4 +35,17 @@ public class MemoryCacheService : ICacheService {
         _memoryCache.Remove(key);
         return Task.CompletedTask;
     }
+
+    public Task<T> GetOrCreateAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        TimeSpan? expiry = null,
+        CancellationToken cancellationToken = default) =>
+        CacheSingleFlight.GetOrCreateAsync(
+            key,
+            ct => GetAsync<T>(key, ct),
+            (value, ttl, ct) => SetAsync(key, value, ttl, ct),
+            factory,
+            expiry,
+            cancellationToken);
 }

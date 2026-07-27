@@ -49,18 +49,11 @@ public class FilterMetadataService : IFilterMetadataService {
         string cacheKey,
         Func<CancellationToken, Task<List<FilterOption>>> loader,
         CancellationToken cancellationToken) {
-        var cached = await _cacheService.GetAsync<List<FilterOption>>(cacheKey, cancellationToken);
-        if (cached is not null) {
-            return cached;
-        }
-
-        var loaded = await loader(cancellationToken);
-        await _cacheService.SetAsync(
+        var loaded = await _cacheService.GetOrCreateAsync(
             cacheKey,
-            loaded,
+            loader,
             TimeSpan.FromMinutes(_cacheOptions.DefaultTtlMinutes * 7),
             cancellationToken);
-
         return loaded;
     }
 
