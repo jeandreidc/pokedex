@@ -58,6 +58,20 @@ public class ExceptionHandlingMiddlewareTests {
         await AssertErrorBody(context, "An unexpected error occurred.");
     }
 
+    [Fact]
+    public async Task InvokeAsync_ReturnsConflict_ForUniqueConstraintViolation() {
+        var context = CreateContext();
+        RequestDelegate next = _ => throw new Exception(
+            "See inner",
+            new Exception("UNIQUE constraint failed: Users.Username"));
+
+        var sut = new ExceptionHandlingMiddleware(next, NullLogger<ExceptionHandlingMiddleware>.Instance);
+        await sut.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(409);
+        await AssertErrorBody(context, "Username is already taken.");
+    }
+
     private static DefaultHttpContext CreateContext() {
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();

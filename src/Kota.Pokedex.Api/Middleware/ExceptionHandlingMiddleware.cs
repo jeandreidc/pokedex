@@ -32,12 +32,24 @@ public class ExceptionHandlingMiddleware {
             UnauthorizedAccessException authEx => ((int)HttpStatusCode.Unauthorized, authEx.Message),
             ArgumentException argEx => ((int)HttpStatusCode.BadRequest, argEx.Message),
             KeyNotFoundException notFoundEx => ((int)HttpStatusCode.NotFound, notFoundEx.Message),
+            _ when IsUniqueConstraintViolation(exception) =>
+                ((int)HttpStatusCode.Conflict, "Username is already taken."),
             _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
         };
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = message }));
+    }
+
+    private static bool IsUniqueConstraintViolation(Exception exception) {
+        for (Exception? ex = exception; ex is not null; ex = ex.InnerException) {
+            if (ex.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
