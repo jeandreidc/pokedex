@@ -32,15 +32,11 @@ public sealed class PokedexMetricsService : IPokedexMetricsService {
     }
 
     public void RecordPokemonFavorited(string pokemonName, string generation) {
-        _pokemonFavorited.Add(1,
-            new KeyValuePair<string, object?>("pokemon_name", pokemonName),
-            new KeyValuePair<string, object?>("generation", generation));
+        _pokemonFavorited.Add(1, new KeyValuePair<string, object?>("generation", generation));
     }
 
     public void RecordPokemonCaught(string pokemonName, string generation) {
-        _pokemonCaught.Add(1,
-            new KeyValuePair<string, object?>("pokemon_name", pokemonName),
-            new KeyValuePair<string, object?>("generation", generation));
+        _pokemonCaught.Add(1, new KeyValuePair<string, object?>("generation", generation));
     }
 
     public void RecordUserRegistered() => _usersRegistered.Add(1);

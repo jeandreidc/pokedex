@@ -12,7 +12,7 @@ public class PokedexMetricsServiceTests {
 
     measurements.Should().ContainSingle();
     measurements[0].Value.Should().Be(1);
-    measurements[0].Tags.Should().Contain(new KeyValuePair<string, object?>("pokemon_name", "pikachu"));
+    measurements[0].Tags.Should().NotContain(t => t.Key == "pokemon_name");
     measurements[0].Tags.Should().Contain(new KeyValuePair<string, object?>("generation", "I"));
   }
 
@@ -24,7 +24,7 @@ public class PokedexMetricsServiceTests {
 
     measurements.Should().ContainSingle();
     measurements[0].Value.Should().Be(1);
-    measurements[0].Tags.Should().Contain(new KeyValuePair<string, object?>("pokemon_name", "bulbasaur"));
+    measurements[0].Tags.Should().NotContain(t => t.Key == "pokemon_name");
     measurements[0].Tags.Should().Contain(new KeyValuePair<string, object?>("generation", "I"));
   }
 
