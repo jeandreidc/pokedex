@@ -109,13 +109,25 @@ public class GetCollectionStatsQueryHandler : IRequestHandler<GetCollectionStats
         var totalPokemon = index.Count;
         var overallPercentage = totalPokemon == 0 ? 0 : Math.Round(caughtIds.Count * 100.0 / totalPokemon, 1);
 
+        var generationMap = await _indexService.GetPokemonGenerationMapAsync(cancellationToken);
+        var totalByDisplay = generationMap.Values
+            .GroupBy(display => display, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        var caughtByDisplay = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var id in caughtIds) {
+            if (!generationMap.TryGetValue(id, out var display)) {
+                continue;
+            }
+
+            caughtByDisplay[display] = caughtByDisplay.GetValueOrDefault(display) + 1;
+        }
+
         var generations = await _filterMetadataService.GetGenerationsAsync(cancellationToken);
         var byGeneration = new List<GenerationStatDto>();
 
         foreach (var generation in generations) {
-            var generationIds = await _indexService.GetPokemonIdsByGenerationAsync(generation.Name, cancellationToken);
-            var totalInGeneration = generationIds.Count;
-            var caughtInGeneration = generationIds.Count(id => caughtIds.Contains(id));
+            totalByDisplay.TryGetValue(generation.DisplayName, out var totalInGeneration);
+            caughtByDisplay.TryGetValue(generation.DisplayName, out var caughtInGeneration);
             var percentage = totalInGeneration == 0
                 ? 0
                 : Math.Round(caughtInGeneration * 100.0 / totalInGeneration, 1);
