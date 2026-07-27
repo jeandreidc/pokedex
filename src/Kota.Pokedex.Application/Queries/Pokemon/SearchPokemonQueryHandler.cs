@@ -84,7 +84,7 @@ public class SearchPokemonQueryHandler : IRequestHandler<SearchPokemonQuery, Pag
 
         using (PokedexActivitySources.Source.StartActivity("SearchPokemon.Hydrate")) {
             activity?.SetTag("page_item_count", pageItems.Count);
-            await HydrateCardDetailsAsync(pageItems, request.CacheOnlyHydration, cancellationToken);
+            await HydrateCardDetailsAsync(pageItems, cancellationToken);
         }
 
         return new PagedResult<PokemonSummaryDto> {
@@ -97,33 +97,7 @@ public class SearchPokemonQueryHandler : IRequestHandler<SearchPokemonQuery, Pag
 
     private async Task HydrateCardDetailsAsync(
         List<PokemonSummaryDto> items,
-        bool cacheOnly,
         CancellationToken cancellationToken) {
-        if (!cacheOnly) {
-            await HydrateFromApiAsync(items, cancellationToken);
-            return;
-        }
-
-        var missing = new List<PokemonSummaryDto>();
-
-        foreach (var item in items) {
-            var cached = await _indexService.GetCachedCardDetailsAsync(item.Id, cancellationToken);
-            if (cached is null) {
-                missing.Add(item);
-                continue;
-            }
-
-            item.Types = cached.Types.ToList();
-            item.Abilities = cached.Abilities.ToList();
-            item.Generation = cached.Generation;
-        }
-
-        if (missing.Count > 0) {
-            await HydrateFromApiAsync(missing, cancellationToken);
-        }
-    }
-
-    private async Task HydrateFromApiAsync(List<PokemonSummaryDto> items, CancellationToken cancellationToken) {
         var hydrateTasks = items.Select(async item => {
             var details = await _indexService.GetPokemonCardDetailsAsync(item.Id, cancellationToken);
             item.Types = details.Types.ToList();
