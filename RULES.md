@@ -83,30 +83,29 @@ foreach (var user in users) {
 ```
 
 ### 7. Validation Rules
-- ✅ Validate input at API boundary (Controllers)
-- ✅ Validate business rules in Services
-- ✅ Use FluentValidation for complex rules
-- ✅ Return descriptive validation errors
+- ✅ Validate commands via FluentValidation + MediatR `ValidationBehavior` (not manually in controllers)
+- ✅ Controllers stay thin — dispatch via `IMediator.Send(...)`
+- ✅ Return descriptive validation errors (mapped to `400 Bad Request`)
+- ❌ NO new-ing validators inside controller actions
 
 ```csharp
-// Validator
-public class CreatePokemonValidator : AbstractValidator<CreatePokemonRequest> {
-    public CreatePokemonValidator() {
-        RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Name is required")
-            .MinimumLength(2).WithMessage("Name must be at least 2 characters");
+// Application/Commands/Auth/AuthCommandValidators.cs
+public class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand> {
+    public RegisterUserCommandValidator() {
+        RuleFor(x => x.Username).NotEmpty().MinimumLength(3).MaximumLength(50);
+        RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(100);
     }
 }
 
-// Controller
-[HttpPost]
-public async Task<ActionResult> CreatePokemon(CreatePokemonRequest request) {
-    var validator = new CreatePokemonValidator();
-    var result = await validator.ValidateAsync(request);
-    if (!result.IsValid) {
-        return BadRequest(result.Errors);
-    }
-    // proceed
+// Registered in Application/DependencyInjection.cs:
+// services.AddValidatorsFromAssembly(...);
+// services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+// Controller — no manual ValidateAsync
+[HttpPost("register")]
+public async Task<ActionResult> Register(RegisterUserCommand command, CancellationToken ct) {
+    var result = await _mediator.Send(command, ct);
+    return Ok(result);
 }
 ```
 
@@ -141,23 +140,26 @@ try {
 ## Dependency Injection Rules
 
 ### 10. DI Configuration
-- ✅ Register all dependencies in `Program.cs`
+- ✅ Compose the app from `Program.cs` via layer extension methods (`AddApplication()`, `AddInfrastructure()`)
+- ✅ Register handlers/validators/cache/prefetch inside those layer DI files — see [ARCHITECTURE.md](ARCHITECTURE.md) Dependency Injection
 - ✅ Use constructor injection, never service locator
-- ✅ Use appropriate lifetimes (Scoped for DbContext)
-- ❌ NO new keyword for service instantiation
+- ✅ Use appropriate lifetimes (Scoped for `AppDbContext`)
+- ❌ NO `new` for service instantiation; ❌ NO service locator
 
 ```csharp
-// Good - Constructor injection
-public class PokemonService {
-    public PokemonService(IPokemonRepository repo) {
-        _repository = repo; // stored as readonly field
+// Good — constructor injection (e.g. collection handler)
+public class UpdateCollectionEntryCommandHandler {
+    private readonly ICollectionRepository _repository;
+
+    public UpdateCollectionEntryCommandHandler(ICollectionRepository repository) {
+        _repository = repository;
     }
 }
 
-// Bad - Service locator
-public class PokemonService {
-    public void GetPokemon() {
-        var service = ServiceLocator.Get<IPokemonRepository>(); // anti-pattern
+// Bad — service locator
+public class UpdateCollectionEntryCommandHandler {
+    public void Handle() {
+        var repo = ServiceLocator.Get<ICollectionRepository>(); // anti-pattern
     }
 }
 ```

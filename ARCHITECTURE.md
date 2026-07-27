@@ -170,14 +170,14 @@ ApplicationStarted
           ▼                                 ▼
 ┌─────────────────────┐         ┌─────────────────────┐
 │  Commands (Write)   │         │  Queries (Read)     │
-│  MarkFavorite       │         │  SearchPokemon      │
-│  MarkCaught         │         │  GetBootstrapQuery  │
+│  UpdateCollection   │         │  SearchPokemon      │
+│  Entry              │         │  GetBootstrapQuery  │
 └──────────┬──────────┘         └──────────┬──────────┘
            │                               │
            ▼                               ▼
 ┌─────────────────────┐         ┌─────────────────────┐
-│  IRepository        │         │  IPokeApiClient +   │
-│  (SQLite)           │         │  ICacheService      │
+│  ICollection        │         │  IPokeApiClient +   │
+│  Repository (SQLite)│         │  ICacheService      │
 └──────────┬──────────┘         └──────────┬──────────┘
            │                               │
            └───────────────┬───────────────┘
@@ -241,8 +241,8 @@ ApplicationStarted
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Command | `{Action}{Entity}Command` | `MarkFavoriteCommand` |
-| Command Handler | `{Action}{Entity}CommandHandler` | `MarkFavoriteCommandHandler` |
+| Command | `{Action}{Entity}Command` | `UpdateCollectionEntryCommand` |
+| Command Handler | `{Action}{Entity}CommandHandler` | `UpdateCollectionEntryCommandHandler` |
 | Query | `{Action}{Entity}Query` | `SearchPokemonQuery` |
 | Query Handler | `{Action}{Entity}QueryHandler` | `SearchPokemonQueryHandler` |
 
@@ -280,18 +280,19 @@ GET /api/pokemon?page=2
 [PokedexPageComponent] → replaces grid items; catalogTotalCount unchanged
 ```
 
-### Mark Favorite (Write)
+### Update collection entry (Write)
 
 ```
-User clicks ♥ (web/)
+User toggles ♥ / caught (web/)
    ↓
-POST /api/collection/... (JWT)
+PUT /api/collection/{pokemonId} (JWT)
+   body: { isFavorite?, isCaught? }   // optional partial update
    ↓
-[CollectionController] → _mediator.Send(MarkFavoriteCommand)
+[CollectionController] → _mediator.Send(UpdateCollectionEntryCommand(...))
    ↓
-[Handler] → EF Core → SQLite
+[UpdateCollectionEntryCommandHandler] → ICollectionRepository → EF Core → SQLite
    ↓
-[Controller] → 201 Created
+[Controller] → 200 OK + CollectionEntryDto
 ```
 
 ## Error Handling

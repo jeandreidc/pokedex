@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Kota.Pokedex.Api.Controllers;
 
 /// <summary>
-/// Initial page payload: filter metadata (first abilities page) and first Pokémon page with total counts.
+/// Initial page payload: filter metadata (types, generations, abilities page 1) and pokemonTotalCount.
+/// Pokémon cards are loaded separately via <c>GET /api/pokemon</c>.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
