@@ -65,7 +65,7 @@ export class CollectionStore {
 
     this.collectionApi.getStats().subscribe({
       next: stats => this._stats.set(stats),
-      error: () => {}
+      error: () => this.toast.show('Failed to load collection stats', 'error')
     });
   }
 
