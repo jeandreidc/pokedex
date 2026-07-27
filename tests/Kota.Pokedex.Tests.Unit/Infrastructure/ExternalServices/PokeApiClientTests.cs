@@ -22,7 +22,7 @@ public class PokeApiClientTests {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri(PokeApiFixtures.BaseUrl) };
         var factory = new Mock<IHttpClientFactory>();
         factory.Setup(f => f.CreateClient(PokeApiClient.HttpClientName)).Returns(httpClient);
-        return new PokeApiClient(factory.Object, TestOptions.PokeApi(), NullLogger<PokeApiClient>.Instance);
+        return new PokeApiClient(factory.Object, NullLogger<PokeApiClient>.Instance);
     }
 
     [Fact]

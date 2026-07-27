@@ -1,11 +1,8 @@
-using System.Net;
 using System.Text.Json;
 using Kota.Pokedex.Core.Exceptions;
 using Kota.Pokedex.Core.Interfaces;
 using Kota.Pokedex.Core.Models.PokeApi;
-using Kota.Pokedex.Core.Options;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Kota.Pokedex.Infrastructure.ExternalServices.PokeApi;
 
@@ -16,20 +13,14 @@ public class PokeApiClient : IPokeApiClient {
         PropertyNameCaseInsensitive = true
     };
 
-    private static readonly object ThrottleLock = new();
-    private static SemaphoreSlim? _sharedThrottle;
-
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly SemaphoreSlim _throttle;
     private readonly ILogger<PokeApiClient> _logger;
 
     public PokeApiClient(
         IHttpClientFactory httpClientFactory,
-        IOptions<PokeApiOptions> options,
         ILogger<PokeApiClient> logger) {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _throttle = GetOrCreateThrottle(options.Value.MaxConcurrentRequests);
     }
 
     public Task<PokeApiListResponse> GetPokemonListAsync(int limit, int offset, CancellationToken cancellationToken = default) =>
@@ -57,39 +48,23 @@ public class PokeApiClient : IPokeApiClient {
         GetAsync<PokeApiPokemonDetail>($"pokemon/{nameOrId.ToLowerInvariant()}", cancellationToken);
 
     private async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken) {
-        await _throttle.WaitAsync(cancellationToken);
-        try {
-            _logger.LogDebug("PokeAPI GET {Path}", path);
-            var httpClient = _httpClientFactory.CreateClient(HttpClientName);
-            using var response = await httpClient.GetAsync(path, cancellationToken);
+        _logger.LogDebug("PokeAPI GET {Path}", path);
+        var httpClient = _httpClientFactory.CreateClient(HttpClientName);
+        using var response = await httpClient.GetAsync(path, cancellationToken);
 
-            if (!response.IsSuccessStatusCode) {
-                throw new PokeApiException(
-                    $"PokeAPI request failed for '{path}' with status {(int)response.StatusCode}.",
-                    (int)response.StatusCode);
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var result = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
-            if (result is null) {
-                throw new PokeApiException($"PokeAPI returned empty response for '{path}'.");
-            }
-
-            return result;
-        }
-        finally {
-            _throttle.Release();
-        }
-    }
-
-    private static SemaphoreSlim GetOrCreateThrottle(int maxConcurrentRequests) {
-        if (_sharedThrottle is not null) {
-            return _sharedThrottle;
+        if (!response.IsSuccessStatusCode) {
+            throw new PokeApiException(
+                $"PokeAPI request failed for '{path}' with status {(int)response.StatusCode}.",
+                (int)response.StatusCode);
         }
 
-        lock (ThrottleLock) {
-            return _sharedThrottle ??= new SemaphoreSlim(maxConcurrentRequests, maxConcurrentRequests);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
+        if (result is null) {
+            throw new PokeApiException($"PokeAPI returned empty response for '{path}'.");
         }
+
+        return result;
     }
 
     private static string NormalizeGeneration(string nameOrId) {
