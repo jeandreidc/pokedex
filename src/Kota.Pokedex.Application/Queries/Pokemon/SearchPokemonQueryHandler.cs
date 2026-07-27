@@ -1,7 +1,10 @@
-using Kota.Pokedex.Core.Constants;
+using System.Diagnostics;
 using Kota.Pokedex.Application.Common;
 using Kota.Pokedex.Application.DTOs;
+using Kota.Pokedex.Core.Constants;
+using Kota.Pokedex.Core.Diagnostics;
 using Kota.Pokedex.Core.Interfaces;
+using Kota.Pokedex.Core.Models;
 using MediatR;
 
 namespace Kota.Pokedex.Application.Queries.Pokemon;
@@ -14,51 +17,75 @@ public class SearchPokemonQueryHandler : IRequestHandler<SearchPokemonQuery, Pag
     }
 
     public async Task<PagedResult<PokemonSummaryDto>> Handle(SearchPokemonQuery request, CancellationToken cancellationToken) {
+        using var activity = PokedexActivitySources.Source.StartActivity("SearchPokemon");
+        activity?.SetTag("page", Math.Max(1, request.Page));
+        activity?.SetTag("has_type_filter", !string.IsNullOrWhiteSpace(request.Type));
+        activity?.SetTag("has_ability_filter", !string.IsNullOrWhiteSpace(request.Ability));
+        activity?.SetTag("has_generation_filter", !string.IsNullOrWhiteSpace(request.Generation));
+        activity?.SetTag("has_search", !string.IsNullOrWhiteSpace(request.Search));
+
         var page = Math.Max(1, request.Page);
         var pageSize = PokemonPagination.CatalogPageSize;
 
-        var index = await _indexService.GetIndexAsync(cancellationToken);
-        IEnumerable<PokemonSummaryDto> candidates = index.Select(e => new PokemonSummaryDto {
-            Id = e.Id,
-            Name = e.Name,
-            SpriteUrl = e.SpriteUrl,
-            Types = []
-        });
+        List<PokemonSummaryDto> pageItems;
+        int totalCount;
 
-        HashSet<int>? filterIds = null;
+        using (PokedexActivitySources.Source.StartActivity("SearchPokemon.Filter")) {
+            var index = await _indexService.GetIndexAsync(cancellationToken);
+            IEnumerable<PokemonIndexEntry> candidates = index;
 
-        if (!string.IsNullOrWhiteSpace(request.Type)) {
-            var typeIds = await _indexService.GetPokemonIdsByTypeAsync(request.Type, cancellationToken);
-            filterIds = Intersect(filterIds, typeIds);
+            HashSet<int>? filterIds = null;
+
+            if (!string.IsNullOrWhiteSpace(request.Type)) {
+                var typeIds = await _indexService.GetPokemonIdsByTypeAsync(request.Type, cancellationToken);
+                filterIds = Intersect(filterIds, typeIds);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Ability)) {
+                var abilityIds = await _indexService.GetPokemonIdsByAbilityAsync(request.Ability, cancellationToken);
+                filterIds = Intersect(filterIds, abilityIds);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Generation)) {
+                var generationIds = await _indexService.GetPokemonIdsByGenerationAsync(request.Generation, cancellationToken);
+                filterIds = Intersect(filterIds, generationIds);
+            }
+
+            if (filterIds is not null) {
+                candidates = candidates.Where(c => filterIds.Contains(c.Id));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Search)) {
+                var term = request.Search.Trim();
+                candidates = candidates.Where(c => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Index fetch order is already id-ascending; only re-sort when filters/search may scramble order.
+            IReadOnlyList<PokemonIndexEntry> ordered;
+            if (filterIds is null && string.IsNullOrWhiteSpace(request.Search)) {
+                ordered = index;
+            } else {
+                ordered = candidates.OrderBy(c => c.Id).ToList();
+            }
+
+            totalCount = ordered.Count;
+            var pageEntries = ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            pageItems = pageEntries.Select(e => new PokemonSummaryDto {
+                Id = e.Id,
+                Name = e.Name,
+                SpriteUrl = e.SpriteUrl,
+                Types = []
+            }).ToList();
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Ability)) {
-            var abilityIds = await _indexService.GetPokemonIdsByAbilityAsync(request.Ability, cancellationToken);
-            filterIds = Intersect(filterIds, abilityIds);
+        using (PokedexActivitySources.Source.StartActivity("SearchPokemon.Hydrate")) {
+            activity?.SetTag("page_item_count", pageItems.Count);
+            await HydrateCardDetailsAsync(pageItems, request.CacheOnlyHydration, cancellationToken);
         }
-
-        if (!string.IsNullOrWhiteSpace(request.Generation)) {
-            var generationIds = await _indexService.GetPokemonIdsByGenerationAsync(request.Generation, cancellationToken);
-            filterIds = Intersect(filterIds, generationIds);
-        }
-
-        if (filterIds is not null) {
-            candidates = candidates.Where(c => filterIds.Contains(c.Id));
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Search)) {
-            var term = request.Search.Trim();
-            candidates = candidates.Where(c => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
-        }
-
-        var ordered = candidates.OrderBy(c => c.Id).ToList();
-        var totalCount = ordered.Count;
-        var pageItems = ordered
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        await HydrateCardDetailsAsync(pageItems, request.CacheOnlyHydration, cancellationToken);
 
         return new PagedResult<PokemonSummaryDto> {
             Items = pageItems,

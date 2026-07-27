@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Kota.Pokedex.Core.Constants;
+using Kota.Pokedex.Core.Diagnostics;
 using Kota.Pokedex.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -36,6 +38,7 @@ public class PokemonPrefetchHostedService : IHostedService {
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     private async Task WarmupAsync(CancellationToken cancellationToken) {
+        using var activity = PokedexActivitySources.Source.StartActivity("Startup.Warmup");
         try {
             using var scope = _serviceProvider.CreateScope();
             var indexService = scope.ServiceProvider.GetRequiredService<IPokemonIndexService>();
@@ -49,9 +52,11 @@ public class PokemonPrefetchHostedService : IHostedService {
         }
         catch (OperationCanceledException) {
             _logger.LogInformation("Startup prefetch cancelled during {Phase}", "warmup");
+            activity?.SetStatus(ActivityStatusCode.Error, "cancelled");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Startup prefetch failed during {Phase}", "warmup");
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
     }
 }
