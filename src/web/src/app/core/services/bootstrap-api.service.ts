@@ -29,20 +29,14 @@ export class BootstrapApiService {
     const params = new HttpParams().set('abilityPageSize', abilityPageSize);
 
     return this.waitForReady().pipe(
-      switchMap(() => this.http.get<Record<string, unknown>>(this.baseUrl, { params })),
-      map(raw => this.normalizeBootstrap(raw))
+      switchMap(() => this.http.get<BootstrapPayload>(this.baseUrl, { params })),
+      map(raw => ({
+        types: raw.types ?? [],
+        generations: raw.generations ?? [],
+        abilities: normalizePagedResult(raw.abilities as never),
+        pokemonTotalCount: typeof raw.pokemonTotalCount === 'number' ? raw.pokemonTotalCount : 0
+      }))
     );
-  }
-
-  private normalizeBootstrap(raw: Record<string, unknown>): BootstrapPayload {
-    return {
-      types: (raw['types'] ?? raw['Types'] ?? []) as BootstrapPayload['types'],
-      generations: (raw['generations'] ?? raw['Generations'] ?? []) as BootstrapPayload['generations'],
-      abilities: normalizePagedResult(
-        (raw['abilities'] ?? raw['Abilities'] ?? { items: [] }) as never
-      ) as BootstrapPayload['abilities'],
-      pokemonTotalCount: readCount(raw, 'pokemonTotalCount', 'PokemonTotalCount')
-    };
   }
 
   private waitForReady(): Observable<void> {
@@ -63,15 +57,4 @@ export class BootstrapApiService {
 
     return race(poll, timeout);
   }
-}
-
-function readCount(source: Record<string, unknown>, ...keys: string[]): number {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-  }
-
-  return 0;
 }
