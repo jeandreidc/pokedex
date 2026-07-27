@@ -160,7 +160,7 @@ GET /api/pokemon?search=pika&type=fire&ability=blaze&generation=1&page=1
 ```json
 {
   "items": [
-    { "id": 25, "name": "pikachu", "spriteUrl": "...", "types": ["electric"], "abilities": ["Static"], "generation": "I" }
+    { "id": 25, "name": "pikachu", "spriteUrl": "...", "types": ["electric"], "abilities": ["Static"], "generation": "Generation I" }
   ],
   "page": 1,
   "pageSize": 24,
@@ -456,7 +456,7 @@ Outbound PokeAPI calls use a **named** `HttpClient` (`"PokeApi"`) via `IHttpClie
 
 - **Connection pooling / DNS refresh** — factory-managed handlers, not a captive typed client
 - **Standard resilience handler** — retry + circuit breaker for transient failures
-- **Shared SemaphoreSlim** — one global outbound throttle (default max 5 concurrent), not per-client-instance
+- **Shared SemaphoreSlim** — one global outbound throttle via `PokeApiThrottleHandler` (default max 5 concurrent **per HTTP attempt**), so resilience retries do not hold the slot during backoff
 
 Service Discovery is **not** applied to HttpClient defaults — it was removed because Aspire's service discovery incorrectly intercepted external PokeAPI URLs (`https://pokeapi.co`) as internal service names.
 
@@ -466,10 +466,14 @@ Service Discovery is **not** applied to HttpClient defaults — it was removed b
 
 | Layer | Mechanism | Purpose |
 |-------|-----------|---------|
-| **Inbound** | ASP.NET Core `RateLimiter` (100 req/min/IP) | Protect our API from abuse |
-| **Outbound** | SemaphoreSlim on `PokeApiClient` | Respect PokeAPI fair use; limit concurrent calls |
+| **Inbound** | ASP.NET Core `RateLimiter` (100 req/min/IP, **per replica**) | Protect our API from abuse |
+| **Outbound** | `PokeApiThrottleHandler` on the named HttpClient | Respect PokeAPI fair use; limit concurrent calls **per attempt** (retries release the slot) |
+
+`GET /api/ready` is **exempt** from inbound rate limiting so bootstrap polling cannot 429 a shared NAT/IP during warmup.
 
 PokeAPI removed hard rate limits in 2018, but fair use policy still applies. Caching minimizes outbound calls; throttling is a safety net.
+
+The inbound limiter is intentionally **in-memory / per-pod** for this take-home (not Redis-backed cluster-wide).
 
 ---
 
@@ -485,7 +489,9 @@ PokeAPI removed hard rate limits in 2018, but fair use policy still applies. Cac
 | Abilities list | ~4 | First page + `totalCount` for paginated dropdown |
 | First-page card details | ~24 (default) | Types, abilities, generation on cards without per-row hydration on first paint |
 
-When warmup completes, `IWarmupState.MarkComplete()` flips `/health/ready` to healthy so Kubernetes does not route traffic to a cold pod.
+When warmup completes, `IWarmupState.MarkComplete()` flips `/health/ready` to healthy so Kubernetes does not route traffic to a cold pod. On transient PokeAPI failures the hosted service **retries with exponential backoff** (still fail-closed until success).
+
+Also: `Database.Migrate()` runs once at API process start — safe with the intentional **single API replica** + SQLite PVC; do not scale writers without a shared DB.
 
 Managed by `PokemonIndexService` (pokemon data) and `FilterMetadataService` (dropdown lists). See [Later Changes](#later-changes) for the bootstrap endpoint and frontend impact.
 
