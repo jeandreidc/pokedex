@@ -29,8 +29,9 @@ EXPOSE 8080
 
 ENV ASPNETCORE_URLS=http://+:8080
 
-# SQLite collection database (mounted PVC at /data in Kubernetes)
-RUN mkdir -p /data && chmod 777 /data
+# SQLite collection database (mounted PVC at /data in Kubernetes).
+# Not world-writable — PVC mount typically provides writable storage at runtime.
+RUN mkdir -p /data && chmod 755 /data
 
 COPY --from=api-build /app/publish .
 ENTRYPOINT ["dotnet", "Kota.Pokedex.Api.dll"]
