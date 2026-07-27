@@ -240,6 +240,11 @@ _logger.LogInformation($"Pokemon index warmup complete with {index.Count}");
 - HTTP calls live in `core/services/` — not in components
 - DTO shapes in `core/models/` mirror backend Application DTOs
 - Use `normalizePagedResult()` for paginated API responses; do not trust varying client page sizes for Pokémon search
+- Cross-cutting HTTP concerns (auth Bearer attach, **401 → clear session / logout**) belong in `core/interceptors/`, not in feature components
+
+### State
+- Shared UI state (collection favorites/caught, auth session flags) uses **signals / stores** (`CollectionStore`, `AuthService`) — not parent template methods that allocate new objects every change-detection cycle
+- Feature pages may keep local fields for one-shot form/filter state; prefer signals when the same state drives multiple OnPush children
 
 ### Pagination
 - Fixed catalog page size: **24** (`POKEMON_PAGE_SIZE` constant)
@@ -248,6 +253,7 @@ _logger.LogInformation($"Pokemon index warmup complete with {index.Count}");
 
 ### Components
 - Standalone components with explicit `imports`
-- Loading and error states for all data-fetching views
+- Prefer `ChangeDetectionStrategy.OnPush` for presentational components (e.g. cards); bind inputs via `input()` / signals where practical
+- Loading and error states for all data-fetching views — no empty `error: () => {}` swallows for user-visible data
 - No direct PokeAPI calls from the browser
 

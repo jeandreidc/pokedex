@@ -30,16 +30,6 @@ export interface PokemonSearchParams {
   pageSize: number;
 }
 
-export interface ActiveFilters {
-  search?: string;
-  type?: string;
-  typeLabel?: string;
-  ability?: string;
-  abilityLabel?: string;
-  generation?: string;
-  generationLabel?: string;
-}
-
 export interface BootstrapPayload {
   types: FilterOption[];
   generations: FilterOption[];

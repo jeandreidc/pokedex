@@ -10,7 +10,7 @@ import {
   takeUntil
 } from 'rxjs';
 import { POKEMON_PAGE_SIZE } from '../../core/constants/pokemon-pagination.constants';
-import { ActiveFilters, FilterOption, PagedResult, PokemonSummary } from '../../core/models/api.models';
+import { FilterOption, PagedResult, PokemonSummary } from '../../core/models/api.models';
 import { BootstrapApiService } from '../../core/services/bootstrap-api.service';
 import { FilterApiService } from '../../core/services/filter-api.service';
 import { PokemonApiService } from '../../core/services/pokemon-api.service';
@@ -46,7 +46,6 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
   loadingAbilities = false;
 
   filterValue: FilterToolbarValue = { ...EMPTY_FILTERS };
-  activeFilters: ActiveFilters = {};
 
   results: PagedResult<PokemonSummary> | null = null;
   catalogTotalCount = 0;
@@ -127,7 +126,6 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
           this.catalogTotalCount = metadata.pokemonTotalCount;
           this.filterSnapshot = JSON.stringify(this.filterValue);
           this.applyPageResult(page, 1);
-          this.activeFilters = this.buildActiveFilters();
           this.loading = false;
         },
         error: err => {
@@ -229,21 +227,5 @@ export class PokedexPageComponent implements OnInit, OnDestroy {
   private applyPageResult(result: PagedResult<PokemonSummary>, page: number): void {
     this.results = result;
     this.page = page;
-  }
-
-  private buildActiveFilters(): ActiveFilters {
-    const type = this.types.find(t => t.name === this.filterValue.type);
-    const ability = this.abilities.find(a => a.name === this.filterValue.ability);
-    const generation = this.generations.find(g => g.name === this.filterValue.generation);
-
-    return {
-      search: this.filterValue.search || undefined,
-      type: this.filterValue.type || undefined,
-      typeLabel: type?.displayName,
-      ability: this.filterValue.ability || undefined,
-      abilityLabel: ability?.displayName,
-      generation: this.filterValue.generation || undefined,
-      generationLabel: generation?.displayName
-    };
   }
 }
